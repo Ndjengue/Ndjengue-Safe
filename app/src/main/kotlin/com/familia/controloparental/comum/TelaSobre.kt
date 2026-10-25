@@ -25,7 +25,7 @@ import androidx.compose.ui.unit.dp
 import com.familia.controloparental.R
 import kotlinx.coroutines.delay
 
-const val NOME_APP = "Ndjengue VPN"
+const val NOME_APP = "Ndjengue Safe"
 const val LEMA_APP = "Navegação segura. Controlo parental."
 const val NOME_DESENVOLVEDOR = "Esteves Ndjengue Mbuco Júnior"
 

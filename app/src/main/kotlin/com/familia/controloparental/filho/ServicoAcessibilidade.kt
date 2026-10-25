@@ -44,7 +44,7 @@ class ServicoAcessibilidade : AccessibilityService() {
     private lateinit var cache: CacheLocal
     private var sobreposicao: SobreposicaoPin? = null
     private var ecraBloqueio: SobreposicaoBloqueio? = null
-    private var rotuloApp: String = "Ndjengue VPN"
+    private var rotuloApp: String = "Ndjengue Safe"
 
     @Volatile private var apps: List<AppInstalada> = emptyList()
     @Volatile private var regrasUrl: List<RegraUrl> = emptyList()

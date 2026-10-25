@@ -75,7 +75,7 @@ class FiltroVpnService : VpnService() {
     private fun iniciarVpn() {
         if (tun != null) return
         val b = Builder()
-            .setSession("Ndjengue VPN")
+            .setSession("Ndjengue Safe")
             .addAddress("10.8.0.2", 32)
             .addDnsServer(IP_DNS_VIRTUAL)
             .addRoute(IP_DNS_VIRTUAL, 32)

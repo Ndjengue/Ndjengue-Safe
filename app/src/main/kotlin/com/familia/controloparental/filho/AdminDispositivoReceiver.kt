@@ -20,7 +20,7 @@ class AdminDispositivoReceiver : DeviceAdminReceiver() {
             context, TipoAlerta.DESINSTALACAO_TENTADA,
             "Alguém tentou desativar a proteção contra desinstalação.", 30_000L
         )
-        return "Desativar isto permite desinstalar o Ndjengue VPN e os teus pais serão avisados."
+        return "Desativar isto permite desinstalar o Ndjengue Safe e os teus pais serão avisados."
     }
 
     override fun onDisabled(context: Context, intent: Intent) {

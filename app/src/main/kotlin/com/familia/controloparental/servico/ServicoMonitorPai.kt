@@ -60,7 +60,7 @@ class ServicoMonitorPai : Service() {
         Notificacoes.garantirCanais(this)
         val n = NotificationCompat.Builder(this, Notificacoes.CANAL_SERVICO)
             .setSmallIcon(android.R.drawable.ic_lock_lock)
-            .setContentTitle("Ndjengue VPN")
+            .setContentTitle("Ndjengue Safe")
             .setContentText("A vigiar pedidos e alertas da família")
             .setOngoing(true)
             .setPriority(NotificationCompat.PRIORITY_MIN)

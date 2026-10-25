@@ -134,7 +134,7 @@ fun TelaFilhoInicio(aoDesemparelhar: () -> Unit, aoAbrirComunidade: () -> Unit =
             ) { lancadorNotificacoes.launch(Manifest.permission.POST_NOTIFICATIONS) })
         }
         add(PassoConfig(
-            "Tempo de ecrã", "Permite medir o tempo em cada app. Procura \"Ndjengue VPN\" e ativa.",
+            "Tempo de ecrã", "Permite medir o tempo em cada app. Procura \"Ndjengue Safe\" e ativa.",
             estado.usoAppsPermitido, "Abrir definições"
         ) { abrir(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)) })
         add(PassoConfig(
@@ -176,7 +176,7 @@ fun TelaFilhoInicio(aoDesemparelhar: () -> Unit, aoAbrirComunidade: () -> Unit =
     val nome = dispositivo?.crianca?.nome.orEmpty()
 
     Scaffold(
-        topBar = { TopAppBar(title = { Text("Ndjengue VPN") }) }
+        topBar = { TopAppBar(title = { Text("Ndjengue Safe") }) }
     ) { padding ->
         LazyColumn(
             modifier = Modifier.fillMaxSize().padding(padding),
@@ -255,7 +255,7 @@ fun TelaFilhoInicio(aoDesemparelhar: () -> Unit, aoAbrirComunidade: () -> Unit =
                                 Text("3. Poupança de bateria: \"Sem restrições\"")
                             }
                             Text(
-                                "Dica: abre os Recentes, toca no ícone da app Ndjengue VPN e escolhe \"Bloquear\" (cadeado) para não ser fechada.",
+                                "Dica: abre os Recentes, toca no ícone da app Ndjengue Safe e escolhe \"Bloquear\" (cadeado) para não ser fechada.",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -468,8 +468,8 @@ private fun abrirBateriaXiaomi(ctx: Context) = tentar(
     Intent("miui.intent.action.HIDDEN_APPS_CONFIG_ACTIVITY")
         .setPackage("com.miui.powerkeeper")
         .putExtra("package_name", ctx.packageName)
-        .putExtra("package_label", "Ndjengue VPN"),
+        .putExtra("package_label", "Ndjengue Safe"),
     Intent().setClassName("com.miui.powerkeeper", "com.miui.powerkeeper.ui.HiddenAppsConfigActivity")
         .putExtra("package_name", ctx.packageName)
-        .putExtra("package_label", "Ndjengue VPN")
+        .putExtra("package_label", "Ndjengue Safe")
 )
