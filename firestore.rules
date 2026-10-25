@@ -211,7 +211,7 @@ service cloud.firestore {
       allow create: if eParticipante(request.resource.data.conversaId) &&
         request.resource.data.autorUid == request.auth.uid && expiracaoValida();
       allow update: if adminSoExpiracao();
-      allow delete: if eSuperAdmin() || (eParticipante(resource.data.conversaId) && resource.data.expiresAt <= request.time);
+      allow delete: if eSuperAdmin();
     }
 
     match /publicacoes/{id} {
@@ -219,7 +219,7 @@ service cloud.firestore {
       allow list: if autenticado();
       allow create: if autenticado() && request.resource.data.autorUid == request.auth.uid && expiracaoValida();
       allow update: if adminSoExpiracao();
-      allow delete: if eSuperAdmin() || (autenticado() && resource.data.expiresAt <= request.time);
+      allow delete: if eSuperAdmin();
     }
 
     match /comentarios/{id} {
@@ -227,7 +227,7 @@ service cloud.firestore {
       allow list: if autenticado();
       allow create: if autenticado() && request.resource.data.autorUid == request.auth.uid && expiracaoValida();
       allow update: if adminSoExpiracao();
-      allow delete: if eSuperAdmin() || (autenticado() && resource.data.expiresAt <= request.time);
+      allow delete: if eSuperAdmin();
     }
 
     match /reacoes/{id} {
@@ -235,7 +235,7 @@ service cloud.firestore {
       allow list: if autenticado();
       allow create: if autenticado() && request.resource.data.autorUid == request.auth.uid && expiracaoValida();
       allow update: if adminSoExpiracao();
-      allow delete: if eSuperAdmin() || (autenticado() && resource.data.expiresAt <= request.time);
+      allow delete: if eSuperAdmin();
     }
 
     // Chamadas: só metadados (nunca gravação). Retenção própria fixa de 30 dias.
