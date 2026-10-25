@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.ControloParental" parent="android:Theme.Material.Light.NoActionBar" />
+    <style name="Theme.ControloParental.Bloqueio" parent="android:Theme.Material.Light.NoActionBar" />
+
+    <!-- Splash Screen nativo (Android 12+, com compat via core-splashscreen):
+         mostra o ícone da app sobre o azul da marca enquanto o processo
+         arranca, e depois cede o lugar ao tema normal da app. -->
+    <style name="Theme.ControloParental.Arranque" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/icone_fundo</item>
+        <item name="windowSplashScreenAnimatedIcon">@mipmap/ic_launcher</item>
+        <item name="postSplashScreenTheme">@style/Theme.ControloParental</item>
+    </style>
+</resources>

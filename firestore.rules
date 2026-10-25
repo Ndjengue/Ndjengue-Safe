@@ -1,0 +1,94 @@
+rules_version = '2';
+
+// Regras do Firestore para o Controlo Parental (plano gratuito Spark).
+// Publicar em: Firebase Console > Firestore Database > Regras.
+//
+// Modelo de confiança:
+//  - O pai (donoUid) gere tudo na sua família.
+//  - O telemóvel da criança autentica-se anonimamente, valida um convite de 6 dígitos
+//    e fica registado em familias/{fid}/membros/{uid}. A partir daí lê e escreve
+//    apenas dentro dessa família.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function autenticado() {
+      return request.auth != null;
+    }
+
+    function eDono(fid) {
+      return autenticado() &&
+        get(/databases/$(database)/documents/familias/$(fid)).data.donoUid == request.auth.uid;
+    }
+
+    // Usado em escritas em lote em que a família é criada na mesma operação.
+    function eDonoDepois(fid) {
+      return autenticado() &&
+        getAfter(/databases/$(database)/documents/familias/$(fid)).data.donoUid == request.auth.uid;
+    }
+
+    function eMembro(fid) {
+      return autenticado() &&
+        exists(/databases/$(database)/documents/familias/$(fid)/membros/$(request.auth.uid));
+    }
+
+    // ---------- Convites de emparelhamento ----------
+    match /convites/{codigo} {
+      allow get: if autenticado();
+      allow list: if false;
+      allow create: if autenticado() && eDono(request.resource.data.familiaId);
+      allow update: if false;
+      allow delete: if autenticado();
+    }
+
+    // ---------- Família ----------
+    match /familias/{fid} {
+      allow get: if autenticado() &&
+        (resource.data.donoUid == request.auth.uid || eMembro(fid));
+      // Permite a query "where donoUid == uid" do pai.
+      allow list: if autenticado() && resource.data.donoUid == request.auth.uid;
+      allow create: if autenticado() && request.resource.data.donoUid == request.auth.uid;
+      allow update, delete: if autenticado() && resource.data.donoUid == request.auth.uid;
+
+      match /membros/{uid} {
+        allow read: if eDono(fid) || eMembro(fid);
+        allow create: if autenticado() && (
+          eDonoDepois(fid) ||
+          (
+            request.auth.uid == uid &&
+            request.resource.data.papel == 'filho' &&
+            exists(/databases/$(database)/documents/convites/$(request.resource.data.codigo)) &&
+            get(/databases/$(database)/documents/convites/$(request.resource.data.codigo)).data.familiaId == fid &&
+            get(/databases/$(database)/documents/convites/$(request.resource.data.codigo)).data.expiraEm > request.time.toMillis()
+          )
+        );
+        allow update: if false;
+        allow delete: if eDono(fid);
+      }
+
+      match /segredo/{doc} {
+        allow read: if eDono(fid) || eMembro(fid);
+        allow write: if eDonoDepois(fid);
+      }
+
+      match /dispositivos/{did} {
+        allow read: if eDono(fid) || eMembro(fid);
+        allow create, delete: if eDono(fid);
+        allow update: if eDono(fid) || eMembro(fid);
+
+        match /{sub}/{doc} {
+          allow read, write: if eDono(fid) || eMembro(fid);
+        }
+      }
+
+      match /pedidos/{id} {
+        allow read, create, update: if eDono(fid) || eMembro(fid);
+        allow delete: if eDono(fid);
+      }
+
+      match /alertas/{id} {
+        allow read, create: if eDono(fid) || eMembro(fid);
+        allow update, delete: if eDono(fid);
+      }
+    }
+  }
+}
