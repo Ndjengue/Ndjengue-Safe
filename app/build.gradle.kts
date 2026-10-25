@@ -72,6 +72,9 @@ dependencies {
     // Mapa gratuito (OpenStreetMap, sem chave nem custos)
     implementation("org.osmdroid:osmdroid-android:6.1.20")
 
+    // Chamadas de voz e vídeo (WebRTC, UDP, Apache-2.0)
+    implementation("io.getstream:stream-webrtc-android:1.3.9")
+
     // Localização
     implementation("com.google.android.gms:play-services-location:21.3.0")
 

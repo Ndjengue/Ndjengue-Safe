@@ -15,6 +15,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Call
+import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material.icons.filled.ChatBubbleOutline
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
@@ -36,6 +38,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun TelaComunidade(identidade: Identidade, diasRetencao: Int?, aoVoltar: () -> Unit) {
     var conversaAberta by remember { mutableStateOf<Conversa?>(null) }
+    LaunchedEffect(identidade.nome) { com.familia.controloparental.chamadas.GestorChamadas.meuNome = identidade.nome }
     var aba by remember { mutableIntStateOf(0) }
 
     val c = conversaAberta
@@ -209,7 +212,15 @@ private fun TelaChat(identidade: Identidade, conversa: Conversa, aoVoltar: () ->
         topBar = {
             TopAppBar(
                 title = { Text(titulo) },
-                navigationIcon = { IconButton(onClick = aoVoltar) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Voltar") } }
+                navigationIcon = { IconButton(onClick = aoVoltar) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Voltar") } },
+                actions = {
+                    IconButton(onClick = { com.familia.controloparental.chamadas.GestorChamadas.ligar(uidOutro, titulo, false, identidade.nome) }) {
+                        Icon(Icons.Filled.Call, "Chamada de voz")
+                    }
+                    IconButton(onClick = { com.familia.controloparental.chamadas.GestorChamadas.ligar(uidOutro, titulo, true, identidade.nome) }) {
+                        Icon(Icons.Filled.Videocam, "Videochamada")
+                    }
+                }
             )
         }
     ) { padding ->

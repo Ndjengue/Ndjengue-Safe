@@ -72,7 +72,10 @@ class MainActivity : ComponentActivity() {
                 Box(Modifier.fillMaxSize()) {
                     if (destino != null) {
                         AnimatedVisibility(visible = pronto, enter = fadeIn(tween(450))) {
-                            Navegacao(destino!!)
+                            Box(Modifier.fillMaxSize()) {
+                                Navegacao(destino!!)
+                                com.familia.controloparental.chamadas.CamadaChamadas()
+                            }
                         }
                     }
                     AnimatedVisibility(visible = !pronto, exit = fadeOut(tween(450))) {
