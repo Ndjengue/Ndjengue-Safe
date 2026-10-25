@@ -61,6 +61,7 @@ class MainActivity : ComponentActivity() {
                         else -> "escolha_modo"
                     }
                 }
+                LaunchedEffect(Unit) { com.familia.controloparental.admin.AtividadeRegisto.registar() }
                 var tempoMinimo by remember { mutableStateOf(false) }
                 LaunchedEffect(Unit) {
                     delay(1600)
@@ -104,6 +105,9 @@ private fun Navegacao(inicio: String) {
                 aoConcluir = { nav.navigate("filho_inicio") { popUpTo("escolha_modo") { inclusive = true } } }
             )
         }
+        composable("filho_comunidade") {
+            com.familia.controloparental.comunidade.TelaComunidadeFilho(aoVoltar = { nav.popBackStack() })
+        }
         composable("filho_inicio") {
             // Se o pai remover este dispositivo, o serviço apaga os dados locais e voltamos ao início.
             LaunchedEffect(Unit) {
@@ -111,7 +115,10 @@ private fun Navegacao(inicio: String) {
                     if (!emparelhado) nav.navigate("escolha_modo") { popUpTo(0) }
                 }
             }
-            TelaFilhoInicio(aoDesemparelhar = { nav.navigate("escolha_modo") { popUpTo(0) } })
+            TelaFilhoInicio(
+                aoDesemparelhar = { nav.navigate("escolha_modo") { popUpTo(0) } },
+                aoAbrirComunidade = { nav.navigate("filho_comunidade") }
+            )
         }
     }
 }

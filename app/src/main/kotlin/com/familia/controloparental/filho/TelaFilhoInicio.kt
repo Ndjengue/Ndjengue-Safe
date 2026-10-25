@@ -52,7 +52,7 @@ private class PassoConfig(
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TelaFilhoInicio(aoDesemparelhar: () -> Unit) {
+fun TelaFilhoInicio(aoDesemparelhar: () -> Unit, aoAbrirComunidade: () -> Unit = {}) {
     val ctx = LocalContext.current
     val escopo = rememberCoroutineScope()
     val cache = remember { CacheLocal(ctx) }
@@ -228,6 +228,12 @@ fun TelaFilhoInicio(aoDesemparelhar: () -> Unit) {
                 }
             }
             items(passos) { p -> CartaoPasso(p) }
+
+            item {
+                OutlinedButton(onClick = aoAbrirComunidade, modifier = Modifier.fillMaxWidth()) {
+                    Text("Mensagens com os pais")
+                }
+            }
 
             if (ehXiaomi) {
                 item {

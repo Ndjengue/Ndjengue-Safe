@@ -2,6 +2,7 @@ package com.familia.controloparental.admin
 
 import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.AggregateField
 import com.google.firebase.firestore.AggregateSource
 import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FieldValue
@@ -124,6 +125,13 @@ class RetencaoRepositorio(
     private suspend fun contar(q: Query): Long =
         q.count().get(AggregateSource.SERVER).await().count
 
+    /** Soma do campo anexoBytes (Base64 guardado no documento). Inclui expirados ainda por eliminar. */
+    private suspend fun somarAnexos(colecao: String): Long {
+        val campo = AggregateField.sum("anexoBytes")
+        val r = db.collection(colecao).aggregate(campo).get(AggregateSource.SERVER).await()
+        return (r.get(campo) as? Number)?.toLong() ?: 0L
+    }
+
     /** Contagens reais; o conteúdo privado nunca é descarregado. */
     suspend fun resumo(): ResumoPainel {
         val agora = Timestamp.now()
@@ -140,7 +148,11 @@ class RetencaoRepositorio(
             comentarios = contar(ativos("comentarios")),
             reacoes = contar(ativos("reacoes")),
             chamadas = contar(ativos("chamadas")),
-            expiradosPendentes = pendentes
+            expiradosPendentes = pendentes,
+            contasAtivas = contar(
+                db.collection("atividade").whereGreaterThan("ultimaAtividade", Timestamp(Date(System.currentTimeMillis() - 7 * milisPorDia)))
+            ),
+            bytesAnexos = somarAnexos("mensagens") + somarAnexos("publicacoes")
         )
     }
 

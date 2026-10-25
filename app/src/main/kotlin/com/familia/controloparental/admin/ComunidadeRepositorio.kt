@@ -42,9 +42,14 @@ class ComunidadeRepositorio(
         return Timestamp(Date(if (limiteMs != null) minOf(calculado, limiteMs) else calculado))
     }
 
-    suspend fun criarConversa(outrosParticipantes: List<String>): String {
+    suspend fun criarConversa(outrosParticipantes: List<String>, nomes: Map<String, String> = emptyMap()): String {
         val ref = db.collection("conversas").document()
-        ref.set(mapOf("participantes" to (outrosParticipantes + uid()).distinct(), "criadoEm" to FieldValue.serverTimestamp())).await()
+        ref.set(
+            mapOf(
+                "participantes" to (outrosParticipantes + uid()).distinct(), "nomes" to nomes,
+                "criadoEm" to FieldValue.serverTimestamp()
+            )
+        ).await()
         return ref.id
     }
 
@@ -53,17 +58,19 @@ class ComunidadeRepositorio(
         db.collection("mensagens").add(
             hashMapOf(
                 "conversaId" to conversaId, "autorUid" to uid(), "texto" to texto, "audioBase64" to audioBase64,
+                "anexoBytes" to (audioBase64?.length ?: 0).toLong(),
                 "criadoEm" to FieldValue.serverTimestamp(), "expiresAt" to expira()
             )
         ).await()
     }
 
-    suspend fun criarPublicacao(texto: String, imagemBase64: String? = null, audioBase64: String? = null): String {
+    suspend fun criarPublicacao(texto: String, imagemBase64: String? = null, audioBase64: String? = null, autorNome: String = ""): String {
         validarAnexo(imagemBase64); validarAnexo(audioBase64)
         val ref = db.collection("publicacoes").document()
         ref.set(
             hashMapOf(
-                "autorUid" to uid(), "texto" to texto, "imagemBase64" to imagemBase64, "audioBase64" to audioBase64,
+                "autorUid" to uid(), "autorNome" to autorNome, "texto" to texto, "imagemBase64" to imagemBase64, "audioBase64" to audioBase64,
+                "anexoBytes" to ((imagemBase64?.length ?: 0) + (audioBase64?.length ?: 0)).toLong(),
                 "criadoEm" to FieldValue.serverTimestamp(), "expiresAt" to expira()
             )
         ).await()
@@ -71,12 +78,12 @@ class ComunidadeRepositorio(
     }
 
     /** Comentários e reações nunca vivem mais do que a publicação (expiresAt = o dela). */
-    suspend fun comentar(publicacaoId: String, texto: String) {
+    suspend fun comentar(publicacaoId: String, texto: String, autorNome: String = "") {
         val pub = db.collection("publicacoes").document(publicacaoId).get().await()
         val limite = pub.getTimestamp("expiresAt")?.toDate()?.time
         db.collection("comentarios").add(
             hashMapOf(
-                "publicacaoId" to publicacaoId, "autorUid" to uid(), "texto" to texto,
+                "publicacaoId" to publicacaoId, "autorUid" to uid(), "autorNome" to autorNome, "texto" to texto,
                 "criadoEm" to FieldValue.serverTimestamp(), "expiresAt" to expira(limite)
             )
         ).await()

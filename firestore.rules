@@ -167,12 +167,34 @@ service cloud.firestore {
 
     match /conversas/{cid} {
       allow read: if autenticado() && request.auth.uid in resource.data.participantes;
-      allow create: if autenticado() && request.auth.uid in request.resource.data.participantes;
+      allow create: if autenticado() && request.auth.uid in request.resource.data.participantes &&
+        request.resource.data.participantes.size() == 2;
       allow update, delete: if false;
     }
 
+    // Códigos de amizade (15 min). Só se lê por get (não há listagem).
+    match /amizades/{codigo} {
+      allow get: if autenticado();
+      allow list: if false;
+      allow create: if autenticado() && request.resource.data.uid == request.auth.uid;
+      allow update: if false;
+      allow delete: if autenticado();
+    }
+
+    // Marca de atividade por conta (para "contas ativas"). Cada conta só escreve a sua.
+    match /atividade/{uid} {
+      allow read: if eSuperAdmin();
+      allow create, update: if autenticado() && request.auth.uid == uid &&
+        request.resource.data.keys().hasOnly(['ultimaAtividade']) &&
+        request.resource.data.ultimaAtividade == request.time;
+      allow delete: if false;
+    }
+
     match /mensagens/{id} {
-      allow read: if (aindaValido() && eParticipante(resource.data.conversaId)) || eSuperAdmin();
+      // get: estrito (expirado = negado). list: as queries não conseguem provar request.time,
+      // por isso só exige participação; a app filtra por expiresAt e o TTL/limpeza apaga o resto.
+      allow get: if (aindaValido() && eParticipante(resource.data.conversaId)) || eSuperAdmin();
+      allow list: if eParticipante(resource.data.conversaId) || eSuperAdmin();
       allow create: if eParticipante(request.resource.data.conversaId) &&
         request.resource.data.autorUid == request.auth.uid && expiracaoValida();
       allow update: if adminSoExpiracao();
@@ -180,21 +202,24 @@ service cloud.firestore {
     }
 
     match /publicacoes/{id} {
-      allow read: if (aindaValido() && autenticado()) || eSuperAdmin();
+      allow get: if (aindaValido() && autenticado()) || eSuperAdmin();
+      allow list: if autenticado();
       allow create: if autenticado() && request.resource.data.autorUid == request.auth.uid && expiracaoValida();
       allow update: if adminSoExpiracao();
       allow delete: if eSuperAdmin();
     }
 
     match /comentarios/{id} {
-      allow read: if (aindaValido() && autenticado()) || eSuperAdmin();
+      allow get: if (aindaValido() && autenticado()) || eSuperAdmin();
+      allow list: if autenticado();
       allow create: if autenticado() && request.resource.data.autorUid == request.auth.uid && expiracaoValida();
       allow update: if adminSoExpiracao();
       allow delete: if eSuperAdmin();
     }
 
     match /reacoes/{id} {
-      allow read: if (aindaValido() && autenticado()) || eSuperAdmin();
+      allow get: if (aindaValido() && autenticado()) || eSuperAdmin();
+      allow list: if autenticado();
       allow create: if autenticado() && request.resource.data.autorUid == request.auth.uid && expiracaoValida();
       allow update: if adminSoExpiracao();
       allow delete: if eSuperAdmin();

@@ -24,7 +24,9 @@ data class ResumoPainel(
     val comentarios: Long = 0,
     val reacoes: Long = 0,
     val chamadas: Long = 0,
-    val expiradosPendentes: Long = 0
+    val expiradosPendentes: Long = 0,
+    val contasAtivas: Long = 0,
+    val bytesAnexos: Long = 0
 )
 
 data class ExecucaoLimpeza(

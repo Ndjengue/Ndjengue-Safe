@@ -44,7 +44,7 @@ private fun LinhaDefinicao(icone: androidx.compose.ui.graphics.vector.ImageVecto
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TelaDefinicoes(c: ContextoPai, aoSair: () -> Unit, aoAbrirSobre: () -> Unit, aoAbrirAdmin: () -> Unit = {}) {
+fun TelaDefinicoes(c: ContextoPai, aoSair: () -> Unit, aoAbrirSobre: () -> Unit, aoAbrirAdmin: () -> Unit = {}, aoAbrirComunidade: () -> Unit = {}) {
     val ctx = LocalContext.current
     val escopo = rememberCoroutineScope()
     val utilizador = FirebaseAuth.getInstance().currentUser
@@ -98,6 +98,10 @@ fun TelaDefinicoes(c: ContextoPai, aoSair: () -> Unit, aoAbrirSobre: () -> Unit,
                 CartaoSecao("Administração") {
                     LinhaDefinicao(Icons.Filled.Info, "Painel do Super Administrador", "Política de retenção, limpeza e auditoria", aoAbrirAdmin)
                 }
+            }
+
+            CartaoSecao("Comunidade") {
+                LinhaDefinicao(Icons.Filled.Info, "Conversas e publicações", "Mensagens com a família e partilhas, com eliminação automática", aoAbrirComunidade)
             }
 
             CartaoSecao("Aplicação") {

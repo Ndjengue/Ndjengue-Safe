@@ -218,6 +218,7 @@ class FirestoreRepositorio(
                 )
             )
         ).await()
+        com.familia.controloparental.admin.AtividadeRegisto.registar()
     }
 
     /** Melhor esforço: chamado quando o telemóvel está a desligar. */

@@ -89,12 +89,23 @@ private fun AbaPainel(repo: RetencaoRepositorio, politica: PoliticaRetencao, lim
     var erro by remember { mutableStateOf<String?>(null) }
     var aCarregar by remember { mutableStateOf(true) }
     var recarregar by remember { mutableIntStateOf(0) }
+    var limpezaAutoFeita by remember { mutableStateOf(false) }
 
     LaunchedEffect(recarregar) {
         aCarregar = true
         erro = null
         try {
-            resumo = repo.resumo()
+            var r = repo.resumo()
+            resumo = r
+            // Limpeza oportunista (sem Cloud Functions): se há expirados e a última execução tem mais de 1 h, limpa já.
+            val ultima = limpezas.firstOrNull()
+            val recente = ultima != null && System.currentTimeMillis() - ultima.inicio < 3_600_000L
+            if (r.expiradosPendentes > 0 && !recente && !limpezaAutoFeita) {
+                limpezaAutoFeita = true
+                repo.executarLimpeza()
+                r = repo.resumo()
+                resumo = r
+            }
         } catch (e: Exception) {
             erro = traduzirErro(e)
         }
@@ -117,7 +128,7 @@ private fun AbaPainel(repo: RetencaoRepositorio, politica: PoliticaRetencao, lim
             CartaoSecao("Utilizadores") {
                 LinhaDado("Encarregados registados", r.encarregados.toString())
                 LinhaDado("Crianças registadas", r.criancas.toString())
-                LinhaDado("Contas ativas", "Indisponível sem backend pago")
+                LinhaDado("Contas ativas (últimos 7 dias)", r.contasAtivas.toString())
             }
             CartaoSecao("Conteúdo armazenado (não expirado)") {
                 LinhaDado("Mensagens", r.mensagens.toString())
@@ -125,13 +136,17 @@ private fun AbaPainel(repo: RetencaoRepositorio, politica: PoliticaRetencao, lim
                 LinhaDado("Comentários", r.comentarios.toString())
                 LinhaDado("Reações", r.reacoes.toString())
                 LinhaDado("Metadados de chamadas", r.chamadas.toString())
-                LinhaDado("Ficheiros em Storage", "0 (anexos em Base64 no documento)")
+                LinhaDado("Volume de anexos", formatarTamanho(r.bytesAnexos))
+                Text(
+                    "Anexos ficam no próprio documento (Base64), por isso são apagados com ele e nunca ficam órfãos. O volume inclui expirados ainda por eliminar.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
             CartaoSecao("Eliminação") {
                 LinhaDado("Expirados à espera de eliminação", r.expiradosPendentes.toString())
                 if (r.expiradosPendentes > 0) {
                     Text(
-                        "Já estão inacessíveis aos utilizadores; o TTL ou \"Executar limpeza\" removem-nos.",
+                        "Já estão inacessíveis nas leituras diretas; a limpeza corre ao abrir este painel (no máximo 1×/hora) e o TTL remove o resto.",
                         style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
@@ -153,6 +168,13 @@ private fun AbaPainel(repo: RetencaoRepositorio, politica: PoliticaRetencao, lim
             }
         }
     }
+}
+
+@Composable
+private fun formatarTamanho(b: Long): String = when {
+    b < 1024 -> "$b B"
+    b < 1024 * 1024 -> "${b / 1024} KB"
+    else -> String.format(java.util.Locale.US, "%.1f MB", b / 1048576.0)
 }
 
 @Composable
