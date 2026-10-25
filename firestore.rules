@@ -188,10 +188,10 @@ service cloud.firestore {
         request.resource.data.expiresAt > request.time &&
         request.resource.data.expiresAt < request.time + duration.value(15, 'm');
       allow get: if autenticado() && (resource.data.de == request.auth.uid || resource.data.para == request.auth.uid);
-      allow list: if autenticado() && resource.data.para == request.auth.uid;
+      allow list: if autenticado() && (resource.data.para == request.auth.uid || eSuperAdmin());
       allow update: if autenticado() && (resource.data.de == request.auth.uid || resource.data.para == request.auth.uid) &&
         request.resource.data.de == resource.data.de && request.resource.data.para == resource.data.para;
-      allow delete: if autenticado() && (resource.data.de == request.auth.uid || resource.data.para == request.auth.uid);
+      allow delete: if autenticado() && (resource.data.de == request.auth.uid || resource.data.para == request.auth.uid || eSuperAdmin());
     }
 
     // Marca de atividade por conta (para "contas ativas"). Cada conta só escreve a sua.

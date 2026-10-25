@@ -61,7 +61,10 @@ class MainActivity : ComponentActivity() {
                         else -> "escolha_modo"
                     }
                 }
-                LaunchedEffect(Unit) { com.familia.controloparental.admin.AtividadeRegisto.registar() }
+                LaunchedEffect(Unit) {
+                    com.familia.controloparental.admin.AtividadeRegisto.registar()
+                    com.familia.controloparental.admin.LimpezaNoLogin.executar()
+                }
                 var tempoMinimo by remember { mutableStateOf(false) }
                 LaunchedEffect(Unit) {
                     delay(1600)

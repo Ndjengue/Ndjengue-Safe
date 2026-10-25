@@ -144,6 +144,7 @@ fun TelaLoginPai(navController: NavHostController) {
         escopo.launch {
             try {
                 FirebaseAuth.getInstance().signInWithEmailAndPassword(email.trim(), senha).await()
+                escopo.launch { com.familia.controloparental.admin.LimpezaNoLogin.executar() }
                 navController.navigate("pai") { popUpTo("escolha_modo") { inclusive = false } }
             } catch (e: Exception) {
                 erroGeral = traduzirErro(e)

@@ -208,10 +208,28 @@ class RetencaoRepositorio(
      * publicações expiradas → os seus comentários e reações → restantes expirados.
      * Cada falha de lote tem até 3 tentativas; depois é contada e o resto continua.
      */
+    /** Há pelo menos um documento expirado? (consulta barata, 1 leitura por coleção) */
+    suspend fun haExpirados(): Boolean {
+        val agora = Timestamp.now()
+        for (c in listOf("mensagens", "publicacoes", "comentarios", "reacoes", "sinais")) {
+            val n = try {
+                db.collection(c).whereLessThanOrEqualTo("expiresAt", agora).limit(1).get().await().size()
+            } catch (_: Exception) { 0 }
+            if (n > 0) return true
+        }
+        return false
+    }
+
     suspend fun executarLimpeza(): ExecucaoLimpeza {
         val inicio = Timestamp.now()
         val ref = db.collection("limpezas").document(UUID.randomUUID().toString())
-        ref.set(mapOf("inicio" to inicio, "estado" to "EM_CURSO", "falhas" to 0)).await()
+        ref.set(mapOf("inicio" to FieldValue.serverTimestamp(), "estado" to "EM_CURSO", "falhas" to 0)).await()
+        // Hora do SERVIDOR (não a do telemóvel): evita apagar cedo/tarde se o relógio estiver errado.
+        val agoraServidor: Timestamp = try {
+            ref.get().await().getTimestamp("inicio") ?: inicio
+        } catch (_: Exception) {
+            inicio
+        }
 
         var falhas = 0L
         val contagem = HashMap<String, Long>()
@@ -235,7 +253,7 @@ class RetencaoRepositorio(
         suspend fun apagarExpirados(colecao: String, apagados: MutableList<String>? = null) {
             while (true) {
                 val docs = try {
-                    db.collection(colecao).whereLessThanOrEqualTo("expiresAt", Timestamp.now()).limit(400).get().await().documents
+                    db.collection(colecao).whereLessThanOrEqualTo("expiresAt", agoraServidor).limit(400).get().await().documents
                 } catch (_: Exception) {
                     falhas++
                     return
@@ -262,6 +280,7 @@ class RetencaoRepositorio(
         }
         apagarExpirados("mensagens")
         apagarExpirados("chamadas")
+        apagarExpirados("sinais")
 
         val total = contagem.values.sum()
         val estado = when {
