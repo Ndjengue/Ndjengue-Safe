@@ -283,7 +283,8 @@ private fun ShellPai(fid: String, aoSair: () -> Unit) {
             composable("alertas") {
                 TelaAvisos(contexto, aoAbrirMapa = { nav.navigate("mapa?did=$it") })
             }
-            composable("definicoes") { TelaDefinicoes(contexto, aoSair, aoAbrirSobre = { nav.navigate("sobre") }) }
+            composable("definicoes") { TelaDefinicoes(contexto, aoSair, aoAbrirSobre = { nav.navigate("sobre") }, aoAbrirAdmin = { nav.navigate("admin") }) }
+            composable("admin") { com.familia.controloparental.admin.TelaSuperAdmin(aoVoltar = { nav.popBackStack() }) }
             composable("sobre") { TelaSobre(aoVoltar = { nav.popBackStack() }) }
             composable("adicionar") {
                 TelaFormularioFilho(contexto, didExistente = null, aoVoltar = { nav.popBackStack() }, aoConcluir = { nav.popBackStack() })

@@ -44,13 +44,16 @@ private fun LinhaDefinicao(icone: androidx.compose.ui.graphics.vector.ImageVecto
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TelaDefinicoes(c: ContextoPai, aoSair: () -> Unit, aoAbrirSobre: () -> Unit) {
+fun TelaDefinicoes(c: ContextoPai, aoSair: () -> Unit, aoAbrirSobre: () -> Unit, aoAbrirAdmin: () -> Unit = {}) {
     val ctx = LocalContext.current
     val escopo = rememberCoroutineScope()
     val utilizador = FirebaseAuth.getInstance().currentUser
     var monitorAtivo by remember { mutableStateOf(ServicoMonitorPai.ativo(ctx)) }
     var mostrarPin by remember { mutableStateOf(false) }
     var mensagem by remember { mutableStateOf<String?>(null) }
+
+    var superAdmin by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { superAdmin = com.familia.controloparental.admin.RetencaoRepositorio().ehSuperAdmin() }
 
     val lancadorNotif = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
 
@@ -88,6 +91,12 @@ fun TelaDefinicoes(c: ContextoPai, aoSair: () -> Unit, aoAbrirSobre: () -> Unit)
                         if (v && Build.VERSION.SDK_INT >= 33) lancadorNotif.launch(Manifest.permission.POST_NOTIFICATIONS)
                         ServicoMonitorPai.definirAtivo(ctx, v)
                     })
+                }
+            }
+
+            if (superAdmin) {
+                CartaoSecao("Administração") {
+                    LinhaDefinicao(Icons.Filled.Info, "Painel do Super Administrador", "Política de retenção, limpeza e auditoria", aoAbrirAdmin)
                 }
             }
 
