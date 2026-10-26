@@ -196,7 +196,7 @@ fun TelaFilhoInicio(aoDesemparelhar: () -> Unit, aoAbrirComunidade: () -> Unit =
                     ) {
                         AvatarCrianca(dispositivo?.crianca?.fotoBase64, nome.ifBlank { "Eu" }, 60.dp)
                         Spacer(Modifier.width(16.dp))
-                        Column {
+                        Column(Modifier.weight(1f)) {
                             Text(
                                 if (nome.isBlank()) "Olá!" else "Olá, $nome!",
                                 color = Color.White, style = MaterialTheme.typography.headlineSmall
@@ -206,6 +206,14 @@ fun TelaFilhoInicio(aoDesemparelhar: () -> Unit, aoAbrirComunidade: () -> Unit =
                                 else "Faltam ${passos.size - feitos} passo(s) para ficar tudo pronto",
                                 color = Color.White.copy(alpha = 0.9f)
                             )
+                            if (feitos < passos.size) {
+                                Spacer(Modifier.height(8.dp))
+                                LinearProgressIndicator(
+                                    progress = { feitos / passos.size.toFloat() },
+                                    modifier = Modifier.fillMaxWidth().height(6.dp),
+                                    color = Color.White, trackColor = Color.White.copy(alpha = 0.3f)
+                                )
+                            }
                         }
                     }
                 }

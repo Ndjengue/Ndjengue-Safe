@@ -60,6 +60,12 @@ private fun ListaPedidos(c: ContextoPai) {
             var minutos by remember(p.id) { mutableIntStateOf(p.duracaoMinutos) }
             Card(Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.large) {
                 Column(Modifier.padding(16.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        IconeEmCirculo(if (p.tipoAlvo == TipoAlvo.URL) Icons.Filled.Language else Icons.Filled.Apps, CorAviso, 36.dp)
+                        Spacer(Modifier.width(10.dp))
+                        EtiquetaEstado("Pedido de liberação", CorAviso)
+                    }
+                    Spacer(Modifier.height(10.dp))
                     Text("${p.criancaNome.ifBlank { "Criança" }} quer usar", color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Text(p.rotulo.ifBlank { p.alvo }, style = MaterialTheme.typography.titleLarge)
                     Text("Pedido ${tempoDecorrido(p.criadoEm)} · ${if (p.tipoAlvo == TipoAlvo.URL) "site" else "app"}", color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -150,7 +156,7 @@ private fun ListaAlertas(c: ContextoPai, aoAbrirMapa: (String) -> Unit) {
             ) {
                 Column(Modifier.padding(14.dp)) {
                     Row(verticalAlignment = Alignment.Top) {
-                        Icon(iconeDoAlerta(a.tipo), null, tint = cor)
+                        IconeEmCirculo(iconeDoAlerta(a.tipo), cor, 40.dp)
                         Spacer(Modifier.width(12.dp))
                         Column(Modifier.weight(1f)) {
                             Text(a.criancaNome.ifBlank { "Criança" }, style = MaterialTheme.typography.titleMedium)

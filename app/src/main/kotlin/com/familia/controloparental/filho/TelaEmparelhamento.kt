@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Link
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -14,6 +15,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.familia.controloparental.comum.*
 import com.familia.controloparental.data.CacheLocal
 import com.familia.controloparental.servico.ServicoSincronizacao
@@ -83,6 +85,8 @@ fun TelaEmparelhamento(aoVoltar: () -> Unit, aoConcluir: () -> Unit) {
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            com.familia.controloparental.comum.IconeEmCirculo(androidx.compose.material.icons.Icons.Filled.Link, MaterialTheme.colorScheme.primary, 72.dp)
+            Spacer(Modifier.height(16.dp))
             Text("Introduz o código dos teus pais", style = MaterialTheme.typography.headlineSmall, textAlign = TextAlign.Center)
             Spacer(Modifier.height(8.dp))
             Text(
@@ -98,7 +102,7 @@ fun TelaEmparelhamento(aoVoltar: () -> Unit, aoConcluir: () -> Unit) {
                 singleLine = true,
                 enabled = !aEmparelhar,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
-                textStyle = MaterialTheme.typography.headlineMedium.copy(textAlign = TextAlign.Center, letterSpacing = androidx.compose.ui.unit.TextUnit.Unspecified),
+                textStyle = MaterialTheme.typography.headlineMedium.copy(textAlign = TextAlign.Center, letterSpacing = 10.sp),
                 modifier = Modifier.fillMaxWidth()
             )
             erro?.let {
