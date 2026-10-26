@@ -14,8 +14,8 @@ android {
         applicationId = "com.familia.controloparental.nova"
         minSdk = 26
         targetSdk = 35
-        versionCode = 3
-        versionName = "3.2-safe"
+        versionCode = 4
+        versionName = "3.4-safe"
         // Só telemóveis reais (ARM): tira x86 da biblioteca WebRTC e reduz o APK
         ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a") }
     }

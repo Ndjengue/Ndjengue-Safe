@@ -36,9 +36,8 @@ import kotlin.coroutines.resumeWithException
 
 /**
  * Uma chamada WebRTC ponto a ponto. O áudio/vídeo segue em UDP (SRTP/DTLS), cifrado, diretamente
- * entre os dois telemóveis; nada passa pelo Firestore nem é gravado. Só há STUN gratuito (Google):
- * em redes que bloqueiam a ligação direta (NAT simétrico) a chamada pode falhar, porque um servidor
- * TURN seria pago.
+ * entre os dois telemóveis; nada passa pelo Firestore nem é gravado. Tenta primeiro a ligação direta
+ * (STUN); se a rede a bloquear, usa o relé TURN gratuito (ver ConfigIce) sem que o áudio deixe de estar cifrado.
  */
 class SessaoChamada(
     private val contexto: Context,
@@ -57,6 +56,13 @@ class SessaoChamada(
     var microfoneAtivo by mutableStateOf(true)
         private set
     var cameraAtiva by mutableStateOf(true)
+        private set
+    var altifalante by mutableStateOf(false)
+        private set
+    /** Instante (ms) em que a chamada ficou ligada; 0 enquanto não liga. */
+    var ligadaDesde by mutableStateOf(0L)
+        private set
+    var tipoLigacao by mutableStateOf("")
         private set
 
     val egl: EglBase = EglBase.create()
@@ -77,6 +83,7 @@ class SessaoChamada(
     private val candidatosPendentes = mutableListOf<IceCandidate>()
     private val candidatosVistos = HashSet<String>()
     private var tempoLimite: Job? = null
+    private val toqueSaida = ToqueSaida()
 
     private val audioManager = contexto.getSystemService(Context.AUDIO_SERVICE) as AudioManager
 
@@ -96,6 +103,7 @@ class SessaoChamada(
     fun iniciar() {
         escopo.launch {
             try {
+                com.familia.controloparental.servico.ServicoChamadaAtiva.iniciar(contexto, dados.video)
                 preparar()
                 if (dados.chamador) chamar() else atender()
             } catch (e: Exception) {
@@ -106,10 +114,11 @@ class SessaoChamada(
         }
     }
 
-    private fun preparar() {
+    private suspend fun preparar() {
         iniciarBiblioteca(contexto)
         audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
-        audioManager.isSpeakerphoneOn = dados.video
+        altifalante = dados.video
+        audioManager.isSpeakerphoneOn = altifalante
 
         val f = PeerConnectionFactory.builder()
             .setVideoEncoderFactory(DefaultVideoEncoderFactory(egl.eglBaseContext, true, true))
@@ -117,14 +126,13 @@ class SessaoChamada(
             .createPeerConnectionFactory()
         factory = f
 
-        val servidores = listOf(
-            PeerConnection.IceServer.builder("stun:stun.l.google.com:19302").createIceServer(),
-            PeerConnection.IceServer.builder("stun:stun1.l.google.com:19302").createIceServer()
-        )
+        val servidores = ConfigIce.obter()
         val config = PeerConnection.RTCConfiguration(servidores).apply {
             sdpSemantics = PeerConnection.SdpSemantics.UNIFIED_PLAN
-            tcpCandidatePolicy = PeerConnection.TcpCandidatePolicy.DISABLED // só UDP
+            // UDP é sempre preferido; o TCP/TLS só entra como último recurso (relé em redes muito restritas).
+            tcpCandidatePolicy = PeerConnection.TcpCandidatePolicy.ENABLED
             continualGatheringPolicy = PeerConnection.ContinualGatheringPolicy.GATHER_CONTINUALLY
+            iceCandidatePoolSize = 2
         }
         pc = f.createPeerConnection(config, object : PeerConnection.Observer {
             override fun onSignalingChange(p0: PeerConnection.SignalingState?) {}
@@ -132,11 +140,15 @@ class SessaoChamada(
                 escopo.launch {
                     when (p0) {
                         PeerConnection.IceConnectionState.CONNECTED, PeerConnection.IceConnectionState.COMPLETED -> {
+                            if (!ligada) ligadaDesde = System.currentTimeMillis()
                             ligada = true
+                            toqueSaida.parar()
                             tempoLimite?.cancel()
                             estado = "Em chamada"
+                            descobrirTipoLigacao()
                         }
                         PeerConnection.IceConnectionState.FAILED -> {
+                            toqueSaida.parar()
                             estado = "Não foi possível ligar (rede)"
                             delay(1500)
                             terminar(apagar = true)
@@ -190,13 +202,28 @@ class SessaoChamada(
         }
     }
 
+    /** Diz se a chamada vai direta ou pelo relé (só informativo). */
+    private fun descobrirTipoLigacao() {
+        pc?.getStats { relatorio ->
+            try {
+                val par = relatorio.statsMap.values.firstOrNull { it.type == "candidate-pair" && it.members["state"] == "succeeded" && it.members["nominated"] == true }
+                val idLocal = par?.members?.get("localCandidateId") as? String
+                val local = if (idLocal != null) relatorio.statsMap[idLocal] else null
+                val tipo = local?.members?.get("candidateType")?.toString()
+                escopo.launch { tipoLigacao = if (tipo == "relay") "via relé" else "direta" }
+            } catch (_: Exception) {
+            }
+        }
+    }
+
     private fun restricoes() = MediaConstraints().apply {
         mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveAudio", "true"))
         mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveVideo", if (dados.video) "true" else "false"))
     }
 
     private suspend fun chamar() {
-        estado = "A chamar ${dados.outroNome}…"
+        estado = "A chamar…"
+        toqueSaida.iniciar()
         callId = sinal.criar(dados.outroUid, meuNome, dados.video)
         val oferta = criarSdp(true)
         definirLocal(oferta)
@@ -312,6 +339,11 @@ class SessaoChamada(
         audioTrack?.setEnabled(microfoneAtivo)
     }
 
+    fun alternarAltifalante() {
+        altifalante = !altifalante
+        audioManager.isSpeakerphoneOn = altifalante
+    }
+
     fun alternarCamera() {
         cameraAtiva = !cameraAtiva
         videoTrackLocal?.setEnabled(cameraAtiva)
@@ -330,6 +362,8 @@ class SessaoChamada(
     fun terminar(apagar: Boolean = true) {
         if (terminada) return
         terminada = true
+        toqueSaida.parar()
+        com.familia.controloparental.servico.ServicoChamadaAtiva.parar(contexto)
         tempoLimite?.cancel()
         observador?.remove()
         val id = callId

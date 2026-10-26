@@ -45,10 +45,40 @@ import kotlinx.coroutines.delay
  * (painel dos pais, ecrã da criança) ou pergunta quem está a usar o telemóvel.
  */
 class MainActivity : ComponentActivity() {
+    override fun onStart() {
+        super.onStart()
+        com.familia.controloparental.servico.EscutaChamadas.appVisivel = true
+        androidx.core.app.NotificationManagerCompat.from(this).cancel(com.familia.controloparental.servico.EscutaChamadas.ID_NOTIFICACAO)
+    }
+
+    override fun onStop() {
+        com.familia.controloparental.servico.EscutaChamadas.appVisivel = false
+        super.onStop()
+    }
+
+    override fun onNewIntent(intent: android.content.Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        tratarChamada(intent)
+    }
+
+    /** Aberta pela notificação de chamada: acende o ecrã por cima do bloqueio e, se pedido, atende. */
+    private fun tratarChamada(intent: android.content.Intent?) {
+        val id = intent?.getStringExtra(com.familia.controloparental.servico.EscutaChamadas.EXTRA_CHAMADA) ?: return
+        if (android.os.Build.VERSION.SDK_INT >= 27) {
+            setShowWhenLocked(true)
+            setTurnScreenOn(true)
+        }
+        if (intent.getStringExtra(com.familia.controloparental.servico.EscutaChamadas.EXTRA_ACAO) == com.familia.controloparental.servico.EscutaChamadas.ACAO_ATENDER) {
+            com.familia.controloparental.chamadas.GestorChamadas.pedidoAtender = id
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        tratarChamada(intent)
         setContent {
             TemaControloParental {
                 val ctx = LocalContext.current

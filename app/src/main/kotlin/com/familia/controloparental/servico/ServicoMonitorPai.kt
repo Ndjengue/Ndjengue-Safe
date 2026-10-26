@@ -90,6 +90,7 @@ class ServicoMonitorPai : Service() {
     }
 
     private suspend fun vigiar() {
+        EscutaChamadas.iniciar(this)
         val uid = FirebaseAuth.getInstance().currentUser?.uid
         if (uid == null) {
             stopSelf()
@@ -142,6 +143,7 @@ class ServicoMonitorPai : Service() {
     }
 
     override fun onDestroy() {
+        EscutaChamadas.parar()
         escopo.cancel()
         super.onDestroy()
     }

@@ -13,6 +13,7 @@ object Notificacoes {
     const val CANAL_SERVICO = "servico"
     const val CANAL_AVISOS = "avisos"
     const val CANAL_ALERTAS = "alertas_pais"
+    const val CANAL_CHAMADAS = "chamadas_v1"
 
     fun garantirCanais(ctx: Context) {
         if (Build.VERSION.SDK_INT < 26) return
@@ -25,6 +26,20 @@ object Notificacoes {
         nm.createNotificationChannel(
             NotificationChannel(CANAL_AVISOS, "Avisos", NotificationManager.IMPORTANCE_DEFAULT).apply {
                 description = "Sites bloqueados e respostas aos pedidos."
+            }
+        )
+        nm.createNotificationChannel(
+            NotificationChannel(CANAL_CHAMADAS, "Chamadas a receber", NotificationManager.IMPORTANCE_HIGH).apply {
+                description = "Toque e ecrã de chamada de voz e vídeo."
+                setSound(
+                    android.media.RingtoneManager.getDefaultUri(android.media.RingtoneManager.TYPE_RINGTONE),
+                    android.media.AudioAttributes.Builder()
+                        .setUsage(android.media.AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
+                        .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION).build()
+                )
+                enableVibration(true)
+                vibrationPattern = longArrayOf(0, 800, 700, 800, 700, 800)
+                lockscreenVisibility = android.app.Notification.VISIBILITY_PUBLIC
             }
         )
         nm.createNotificationChannel(

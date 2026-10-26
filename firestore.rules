@@ -151,6 +151,11 @@ service cloud.firestore {
     }
 
     // Auditoria: só se cria, nunca se edita nem apaga; só o super admin lê.
+    match /config/ice {
+      allow read: if autenticado();
+      allow create, update: if eSuperAdmin();
+      allow delete: if false;
+    }
     match /auditoria/{id} {
       allow read: if eSuperAdmin();
       allow create: if eSuperAdmin() && request.resource.data.adminUid == request.auth.uid &&

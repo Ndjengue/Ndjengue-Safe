@@ -102,6 +102,7 @@ class ServicoSincronizacao : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (!iniciado) {
             iniciado = true
+            EscutaChamadas.iniciar(this)
             escopo.launch { arrancar() }
         }
         return START_STICKY
@@ -441,6 +442,7 @@ class ServicoSincronizacao : Service() {
     }
 
     override fun onDestroy() {
+        EscutaChamadas.parar()
         pararLocalizacao()
         receptorDesligar?.let { try { unregisterReceiver(it) } catch (_: Exception) {} }
         receptorPacotes?.let { try { unregisterReceiver(it) } catch (_: Exception) {} }
