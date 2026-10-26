@@ -298,6 +298,14 @@ class FirestoreRepositorio(
                 }
             }
 
+    /** Os pais ligam/desligam, a partir da app, o pedido de PIN e o ecrã de bloqueio no telemóvel da criança. */
+    suspend fun definirControlosEcra(fid: String, did: String, pinProtecao: Boolean? = null, bloqueioEcra: Boolean? = null) {
+        val campos = HashMap<String, Any>()
+        if (pinProtecao != null) campos["pinProtecaoAtiva"] = pinProtecao
+        if (bloqueioEcra != null) campos["bloqueioEcraAtivo"] = bloqueioEcra
+        if (campos.isNotEmpty()) dispositivoRef(fid, did).update(campos).await()
+    }
+
     /** Pede ao telemóvel da criança para enviar a localização com mais frequência até [ateMs]. */
     suspend fun definirRastreioAoVivo(fid: String, did: String, ateMs: Long) {
         dispositivoRef(fid, did).update("rastreioAoVivoAte", ateMs).await()
@@ -590,7 +598,9 @@ class FirestoreRepositorio(
                 usoAppsPermitido = getBoolean("protecao.usoAppsPermitido") ?: false,
                 notificacoesPermitidas = getBoolean("protecao.notificacoesPermitidas") ?: false
             ),
-            uidAutenticacao = getString("uidAutenticacao") ?: ""
+            uidAutenticacao = getString("uidAutenticacao") ?: "",
+            pinProtecaoAtiva = getBoolean("pinProtecaoAtiva") ?: true,
+            bloqueioEcraAtivo = getBoolean("bloqueioEcraAtivo") ?: true
         )
     }
 

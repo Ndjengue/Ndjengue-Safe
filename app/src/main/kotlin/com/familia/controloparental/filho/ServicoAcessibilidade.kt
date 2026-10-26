@@ -52,6 +52,8 @@ class ServicoAcessibilidade : AccessibilityService() {
     @Volatile private var liberacoes: Map<String, Long> = emptyMap()
     @Volatile private var armada: Boolean = false
     @Volatile private var janelaAdmin: Boolean = false
+    @Volatile private var pinAtivo: Boolean = true
+    @Volatile private var bloqueioAtivo: Boolean = true
 
     @Volatile private var pacoteAtual: String? = null
     private val ultimoRegistoBloqueio = HashMap<String, Long>()
@@ -94,6 +96,9 @@ class ServicoAcessibilidade : AccessibilityService() {
                     liberacoes = cache.lerLiberacoes()
                     armada = cache.lerBool(Ambiente.CHAVE_ARMADA)
                     janelaAdmin = cache.janelaAdminAtiva()
+                    pinAtivo = cache.lerBool(Ambiente.CHAVE_PIN_ATIVO, true)
+                    bloqueioAtivo = cache.lerBool(Ambiente.CHAVE_BLOQUEIO_ATIVO, true)
+                    if (!pinAtivo) principal.post { sobreposicao?.ocultar() }
                 } catch (_: Exception) {
                 }
                 delay(3_000)
@@ -140,7 +145,7 @@ class ServicoAcessibilidade : AccessibilityService() {
 
     /** Corre na thread principal. Mostra o bloqueio se a app deve estar bloqueada, senão esconde-o. */
     private fun reavaliar(pacote: String) {
-        val decisao = if (janelaAdmin) null else MotorRegras.decidirApp(pacote, apps, regrasUrl, perfis, liberacoes)
+        val decisao = if (janelaAdmin || !bloqueioAtivo) null else MotorRegras.decidirApp(pacote, apps, regrasUrl, perfis, liberacoes)
         if (decisao != null) {
             mostrarBloqueio(decisao)
         } else if (ecraBloqueio?.visivel == true) {
@@ -191,7 +196,7 @@ class ServicoAcessibilidade : AccessibilityService() {
     // ---------- Proteção contra desinstalação ----------
 
     private fun verificarProtecao(pacote: String, forcar: Boolean) {
-        if (!armada || janelaAdmin) return
+        if (!armada || janelaAdmin || !pinAtivo) return
         if (sobreposicao?.visivel == true) return
         if (PACOTES_SENSIVEIS.none { pacote.contains(it, ignoreCase = true) }) return
 

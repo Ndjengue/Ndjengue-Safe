@@ -294,6 +294,43 @@ private fun SeparadorResumo(c: ContextoPai, d: DadosFilho, agora: Long, aoAbrirM
             LinhaProtecao("Tempo de ecrã", disp.protecao.usoAppsPermitido)
         }
 
+        CartaoSecao("Controlos do ecrã (ligar / desligar)") {
+            val escopo = rememberCoroutineScope()
+            var erroCtl by remember { mutableStateOf<String?>(null) }
+            fun alterar(pin: Boolean? = null, bloqueio: Boolean? = null) {
+                escopo.launch {
+                    try {
+                        c.repo.definirControlosEcra(c.fid, disp.id, pin, bloqueio)
+                        erroCtl = null
+                    } catch (e: Exception) {
+                        erroCtl = traduzirErro(e)
+                    }
+                }
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Ecrã de bloqueio de apps e sites", style = MaterialTheme.typography.titleSmall)
+                    Text(
+                        "Mostra o aviso e o pedido de liberação quando algo está bloqueado. Desligado, a criança usa tudo livremente.",
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Switch(checked = disp.bloqueioEcraAtivo, onCheckedChange = { alterar(bloqueio = it) })
+            }
+            HorizontalDivider(Modifier.padding(vertical = 10.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("PIN de administrador", style = MaterialTheme.typography.titleSmall)
+                    Text(
+                        "Pede o PIN só ao tentar desinstalar ou desativar a proteção. Desligado, o telemóvel nunca pede o PIN.",
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Switch(checked = disp.pinProtecaoAtiva, onCheckedChange = { alterar(pin = it) })
+            }
+            MensagemErro(erroCtl)
+        }
+
         CartaoSecao("Hoje") {
             Text("Tempo de ecrã: ${formatarDuracao(hoje?.totalMs ?: 0L)}")
             Text("Bloqueios: $bloqueiosHoje", color = MaterialTheme.colorScheme.onSurfaceVariant)

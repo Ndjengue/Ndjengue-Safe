@@ -30,6 +30,8 @@ object Ambiente {
     val escopo: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     const val CHAVE_ARMADA = "protecao_armada"
+    const val CHAVE_PIN_ATIVO = "pin_protecao_ativa"
+    const val CHAVE_BLOQUEIO_ATIVO = "bloqueio_ecra_ativo"
     const val CHAVE_NOME_CRIANCA = "crianca_nome"
 }
 

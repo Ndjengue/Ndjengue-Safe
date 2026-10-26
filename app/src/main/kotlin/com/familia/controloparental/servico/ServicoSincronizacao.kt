@@ -181,6 +181,8 @@ class ServicoSincronizacao : Service() {
             rastreioAte = disp.rastreioAoVivoAte
             cache.guardarTexto(Ambiente.CHAVE_NOME_CRIANCA, disp.crianca.nome)
             cache.guardarTexto("crianca_telefone", disp.crianca.telefone)
+            cache.guardarBool(Ambiente.CHAVE_PIN_ATIVO, disp.pinProtecaoAtiva)
+            cache.guardarBool(Ambiente.CHAVE_BLOQUEIO_ATIVO, disp.bloqueioEcraAtivo)
         }
     }
 

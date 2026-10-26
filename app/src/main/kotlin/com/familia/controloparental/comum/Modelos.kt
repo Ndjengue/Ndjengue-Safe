@@ -77,7 +77,11 @@ data class Dispositivo(
     val localizacaoAtual: LocalizacaoPonto? = null,
     val rastreioAoVivoAte: Long = 0L,
     val protecao: EstadoProtecao = EstadoProtecao(),
-    val uidAutenticacao: String = ""
+    val uidAutenticacao: String = "",
+    /** Controlado pelos pais: pede o PIN ao tentar desinstalar / desativar a proteção. */
+    val pinProtecaoAtiva: Boolean = true,
+    /** Controlado pelos pais: mostra o ecrã de bloqueio (apps, sites, horários). */
+    val bloqueioEcraAtivo: Boolean = true
 ) {
     fun estaOnline(agora: Long = System.currentTimeMillis()): Boolean =
         emparelhado && onlineDeclarado && ultimoSinal > 0 && (agora - ultimoSinal) < LIMITE_ONLINE_MS
