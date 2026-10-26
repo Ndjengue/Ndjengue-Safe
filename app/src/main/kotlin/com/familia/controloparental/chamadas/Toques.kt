@@ -17,6 +17,16 @@ class ToqueEntrada(private val ctx: Context) {
     private var vibrador: Vibrator? = null
 
     fun iniciar() {
+        // Comportamento como o WhatsApp: respeita o modo do telemóvel (som / vibrar / silêncio).
+        val modo = try {
+            (ctx.getSystemService(Context.AUDIO_SERVICE) as AudioManager).ringerMode
+        } catch (_: Exception) { AudioManager.RINGER_MODE_NORMAL }
+        if (modo == AudioManager.RINGER_MODE_SILENT) return
+        if (modo == AudioManager.RINGER_MODE_NORMAL) tocarSom()
+        vibrar()
+    }
+
+    private fun tocarSom() {
         try {
             val uri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
             toque = RingtoneManager.getRingtone(ctx, uri)?.apply {
@@ -28,6 +38,9 @@ class ToqueEntrada(private val ctx: Context) {
             }
         } catch (_: Exception) {
         }
+    }
+
+    private fun vibrar() {
         try {
             vibrador = if (Build.VERSION.SDK_INT >= 31)
                 (ctx.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager).defaultVibrator
