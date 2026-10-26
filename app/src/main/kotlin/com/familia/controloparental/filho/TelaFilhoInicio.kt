@@ -19,6 +19,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.RadioButtonUnchecked
+import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.Sos
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -211,14 +212,30 @@ fun TelaFilhoInicio(aoDesemparelhar: () -> Unit, aoAbrirComunidade: () -> Unit =
             }
 
             item {
-                Button(
-                    onClick = { mostrarSos = true },
-                    colors = ButtonDefaults.buttonColors(containerColor = CorErro),
-                    modifier = Modifier.fillMaxWidth().height(56.dp)
-                ) {
-                    Icon(Icons.Filled.Sos, contentDescription = null)
-                    Spacer(Modifier.width(10.dp))
-                    Text(if (sosEnviado) "Pedido de ajuda enviado" else "Preciso de ajuda")
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
+                    Button(
+                        onClick = aoAbrirComunidade,
+                        shape = MaterialTheme.shapes.large,
+                        modifier = Modifier.weight(1f).height(96.dp)
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Icon(Icons.Filled.Chat, null, modifier = Modifier.size(30.dp))
+                            Text("Falar com os pais", maxLines = 1, softWrap = false)
+                            Text("Mensagens e chamadas", style = MaterialTheme.typography.labelSmall, maxLines = 1, softWrap = false)
+                        }
+                    }
+                    Button(
+                        onClick = { mostrarSos = true },
+                        colors = ButtonDefaults.buttonColors(containerColor = CorErro),
+                        shape = MaterialTheme.shapes.large,
+                        modifier = Modifier.weight(1f).height(96.dp)
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Icon(Icons.Filled.Sos, null, modifier = Modifier.size(30.dp))
+                            Text(if (sosEnviado) "Ajuda enviada" else "Preciso de ajuda", maxLines = 1, softWrap = false)
+                            Text("Avisa já os pais", style = MaterialTheme.typography.labelSmall, maxLines = 1, softWrap = false)
+                        }
+                    }
                 }
             }
 
@@ -228,12 +245,6 @@ fun TelaFilhoInicio(aoDesemparelhar: () -> Unit, aoAbrirComunidade: () -> Unit =
                 }
             }
             items(passos) { p -> CartaoPasso(p) }
-
-            item {
-                OutlinedButton(onClick = aoAbrirComunidade, modifier = Modifier.fillMaxWidth()) {
-                    Text("Mensagens com os pais")
-                }
-            }
 
             if (ehXiaomi) {
                 item {

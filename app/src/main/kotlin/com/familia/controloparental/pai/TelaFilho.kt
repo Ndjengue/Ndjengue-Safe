@@ -44,6 +44,7 @@ fun TelaFilho(
     aoVoltar: () -> Unit,
     aoEditar: () -> Unit,
     aoAbrirMapa: () -> Unit,
+    aoAbrirConversa: () -> Unit = {},
     aoEditarHorario: (perfilId: String, alvo: String) -> Unit,
     aoRemovido: () -> Unit
 ) {
@@ -125,7 +126,7 @@ fun TelaFilho(
                 label = "separador"
             ) { i ->
                 when (i) {
-                    0 -> SeparadorResumo(c, dados, agora, aoAbrirMapa)
+                    0 -> SeparadorResumo(c, dados, agora, aoAbrirMapa, aoAbrirConversa)
                     1 -> SeparadorApps(c, dados, aoEditarHorario)
                     2 -> SeparadorSites(c, dados, aoEditarHorario)
                     3 -> SeparadorHorarios(c, dados, aoEditarHorario)
@@ -220,7 +221,7 @@ private fun LinhaProtecao(texto: String, ok: Boolean) {
 }
 
 @Composable
-private fun SeparadorResumo(c: ContextoPai, d: DadosFilho, agora: Long, aoAbrirMapa: () -> Unit) {
+private fun SeparadorResumo(c: ContextoPai, d: DadosFilho, agora: Long, aoAbrirMapa: () -> Unit, aoAbrirConversa: () -> Unit) {
     val ctx = LocalContext.current
     val disp = d.dispositivo
     val hoje = d.relatorios.firstOrNull { it.data == hojeIso() }
@@ -347,21 +348,18 @@ private fun SeparadorResumo(c: ContextoPai, d: DadosFilho, agora: Long, aoAbrirM
             Text("Bloqueios: $bloqueiosHoje", color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
 
-        if (disp.crianca.telefone.isNotBlank() || disp.crianca.email.isNotBlank()) {
-            CartaoSecao("Contactar ${disp.nomeExibicao}") {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+        CartaoSecao("Contactar ${disp.nomeExibicao}") {
+            Button(onClick = aoAbrirConversa, modifier = Modifier.fillMaxWidth().height(52.dp)) {
+                Icon(Icons.Filled.Chat, null); Spacer(Modifier.width(10.dp)); Text("Conversar na app (mensagens e chamadas)")
+            }
+            if (disp.crianca.telefone.isNotBlank() || disp.crianca.email.isNotBlank()) {
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth().padding(top = 10.dp)) {
                     if (disp.crianca.telefone.isNotBlank()) {
-                        FilledTonalButton(onClick = { ligarPara(ctx, disp.crianca.telefone) }, modifier = Modifier.weight(1f)) {
-                            Icon(Icons.Filled.Call, null); Spacer(Modifier.width(6.dp)); Text("Ligar")
-                        }
-                        FilledTonalButton(onClick = { enviarSms(ctx, disp.crianca.telefone) }, modifier = Modifier.weight(1f)) {
-                            Icon(Icons.Filled.Sms, null); Spacer(Modifier.width(6.dp)); Text("SMS")
-                        }
+                        AcaoContacto(Icons.Filled.Call, "Ligar", Modifier.weight(1f)) { ligarPara(ctx, disp.crianca.telefone) }
+                        AcaoContacto(Icons.Filled.Sms, "SMS", Modifier.weight(1f)) { enviarSms(ctx, disp.crianca.telefone) }
                     }
                     if (disp.crianca.email.isNotBlank()) {
-                        FilledTonalButton(onClick = { enviarEmail(ctx, disp.crianca.email) }, modifier = Modifier.weight(1f)) {
-                            Icon(Icons.Filled.Email, null); Spacer(Modifier.width(6.dp)); Text("E-mail")
-                        }
+                        AcaoContacto(Icons.Filled.Email, "E-mail", Modifier.weight(1f)) { enviarEmail(ctx, disp.crianca.email) }
                     }
                 }
                 if (disp.crianca.telefone.isNotBlank()) {
@@ -370,6 +368,21 @@ private fun SeparadorResumo(c: ContextoPai, d: DadosFilho, agora: Long, aoAbrirM
             }
         }
         Spacer(Modifier.height(8.dp))
+    }
+}
+
+@Composable
+private fun AcaoContacto(icone: androidx.compose.ui.graphics.vector.ImageVector, rotulo: String, modifier: Modifier, aoClicar: () -> Unit) {
+    FilledTonalButton(
+        onClick = aoClicar,
+        modifier = modifier.heightIn(min = 68.dp),
+        shape = MaterialTheme.shapes.large,
+        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 8.dp)
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Icon(icone, null, modifier = Modifier.size(24.dp))
+            Text(rotulo, maxLines = 1, softWrap = false, style = MaterialTheme.typography.labelLarge)
+        }
     }
 }
 

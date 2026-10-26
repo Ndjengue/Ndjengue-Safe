@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Logout
+import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Map
@@ -166,7 +167,7 @@ private fun ShellPai(fid: String, aoSair: () -> Unit) {
     val nav = rememberNavController()
     val entrada by nav.currentBackStackEntryAsState()
     val rota = entrada?.destination?.route ?: "inicio"
-    val mostrarBarra = rota == "inicio" || rota.startsWith("mapa") || rota == "alertas" || rota == "definicoes"
+    val mostrarBarra = rota == "inicio" || rota.startsWith("mapa") || rota == "alertas" || rota == "comunidade" || rota == "definicoes"
 
     val pendentes = contexto.pedidosPendentes.size
     val naoLidos = alertas.count { !it.lido }
@@ -253,6 +254,10 @@ private fun ShellPai(fid: String, aoSair: () -> Unit) {
                         label = { Text("Avisos") }
                     )
                     NavigationBarItem(
+                        selected = rota == "comunidade", onClick = { navegarTab(nav, "comunidade") },
+                        icon = { Icon(Icons.Filled.Chat, null) }, label = { Text("Conversas") }
+                    )
+                    NavigationBarItem(
                         selected = rota == "definicoes", onClick = { navegarTab(nav, "definicoes") },
                         icon = { Icon(Icons.Filled.Settings, null) }, label = { Text("Definições") }
                     )
@@ -304,6 +309,7 @@ private fun ShellPai(fid: String, aoSair: () -> Unit) {
                     aoVoltar = { nav.popBackStack() },
                     aoEditar = { nav.navigate("editar/$did") },
                     aoAbrirMapa = { nav.navigate("mapa?did=$did") },
+                    aoAbrirConversa = { nav.navigate("comunidade") },
                     aoEditarHorario = { perfilId, alvo ->
                         nav.navigate("horario/$did?perfil=${Uri.encode(perfilId)}&alvo=${Uri.encode(alvo)}")
                     },
