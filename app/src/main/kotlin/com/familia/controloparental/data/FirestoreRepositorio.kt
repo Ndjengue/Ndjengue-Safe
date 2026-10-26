@@ -299,10 +299,11 @@ class FirestoreRepositorio(
             }
 
     /** Os pais ligam/desligam, a partir da app, o pedido de PIN e o ecrã de bloqueio no telemóvel da criança. */
-    suspend fun definirControlosEcra(fid: String, did: String, pinProtecao: Boolean? = null, bloqueioEcra: Boolean? = null) {
+    suspend fun definirControlosEcra(fid: String, did: String, pinProtecao: Boolean? = null, bloqueioEcra: Boolean? = null, bloqueioTotal: Boolean? = null) {
         val campos = HashMap<String, Any>()
         if (pinProtecao != null) campos["pinProtecaoAtiva"] = pinProtecao
         if (bloqueioEcra != null) campos["bloqueioEcraAtivo"] = bloqueioEcra
+        if (bloqueioTotal != null) campos["ecraBloqueadoAgora"] = bloqueioTotal
         if (campos.isNotEmpty()) dispositivoRef(fid, did).update(campos).await()
     }
 
@@ -600,7 +601,8 @@ class FirestoreRepositorio(
             ),
             uidAutenticacao = getString("uidAutenticacao") ?: "",
             pinProtecaoAtiva = getBoolean("pinProtecaoAtiva") ?: true,
-            bloqueioEcraAtivo = getBoolean("bloqueioEcraAtivo") ?: true
+            bloqueioEcraAtivo = getBoolean("bloqueioEcraAtivo") ?: true,
+            ecraBloqueadoAgora = getBoolean("ecraBloqueadoAgora") ?: false
         )
     }
 

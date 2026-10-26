@@ -44,6 +44,8 @@ class ServicoAcessibilidade : AccessibilityService() {
     private lateinit var cache: CacheLocal
     private var sobreposicao: SobreposicaoPin? = null
     private var ecraBloqueio: SobreposicaoBloqueio? = null
+    private var ecraTotal: SobreposicaoTotal? = null
+    private var jaBloqueouAgora = false
     private var rotuloApp: String = "Ndjengue Safe"
 
     @Volatile private var apps: List<AppInstalada> = emptyList()
@@ -54,6 +56,7 @@ class ServicoAcessibilidade : AccessibilityService() {
     @Volatile private var janelaAdmin: Boolean = false
     @Volatile private var pinAtivo: Boolean = true
     @Volatile private var bloqueioAtivo: Boolean = true
+    @Volatile private var bloqueioTotal: Boolean = false
 
     @Volatile private var pacoteAtual: String? = null
     private val ultimoRegistoBloqueio = HashMap<String, Long>()
@@ -87,6 +90,8 @@ class ServicoAcessibilidade : AccessibilityService() {
             aoVoltar = { performGlobalAction(GLOBAL_ACTION_HOME) }
         )
 
+        ecraTotal = SobreposicaoTotal(this)
+
         escopo.launch { cache.observarApps().collect { apps = it } }
         escopo.launch { cache.observarRegrasUrl().collect { regrasUrl = it } }
         escopo.launch {
@@ -99,6 +104,9 @@ class ServicoAcessibilidade : AccessibilityService() {
                     pinAtivo = cache.lerBool(Ambiente.CHAVE_PIN_ATIVO, true)
                     bloqueioAtivo = cache.lerBool(Ambiente.CHAVE_BLOQUEIO_ATIVO, true)
                     if (!pinAtivo) principal.post { sobreposicao?.ocultar() }
+                    bloqueioTotal = cache.lerBool(Ambiente.CHAVE_BLOQUEIO_TOTAL, false)
+                    val nome = cache.lerTexto(Ambiente.CHAVE_NOME_CRIANCA) ?: ""
+                    principal.post { aplicarBloqueioTotal(nome) }
                 } catch (_: Exception) {
                 }
                 delay(3_000)
@@ -243,6 +251,20 @@ class ServicoAcessibilidade : AccessibilityService() {
         return textos
     }
 
+    /** Pais ligaram/desligaram "Bloquear o ecrã agora": cobre tudo e, ao ligar, apaga o ecrã uma vez. */
+    private fun aplicarBloqueioTotal(nome: String) {
+        if (bloqueioTotal) {
+            ecraTotal?.mostrar(nome)
+            if (!jaBloqueouAgora) {
+                jaBloqueouAgora = true
+                if (android.os.Build.VERSION.SDK_INT >= 28) performGlobalAction(GLOBAL_ACTION_LOCK_SCREEN)
+            }
+        } else {
+            jaBloqueouAgora = false
+            ecraTotal?.ocultar()
+        }
+    }
+
     override fun onInterrupt() {}
 
     override fun onUnbind(intent: Intent?): Boolean {
@@ -258,6 +280,7 @@ class ServicoAcessibilidade : AccessibilityService() {
         ativo = false
         sobreposicao?.destruir()
         ecraBloqueio?.ocultar()
+        ecraTotal?.ocultar()
         escopo.cancel()
         super.onDestroy()
     }

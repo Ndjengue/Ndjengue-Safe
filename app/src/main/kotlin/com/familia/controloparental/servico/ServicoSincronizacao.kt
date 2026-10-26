@@ -183,6 +183,7 @@ class ServicoSincronizacao : Service() {
             cache.guardarTexto("crianca_telefone", disp.crianca.telefone)
             cache.guardarBool(Ambiente.CHAVE_PIN_ATIVO, disp.pinProtecaoAtiva)
             cache.guardarBool(Ambiente.CHAVE_BLOQUEIO_ATIVO, disp.bloqueioEcraAtivo)
+            cache.guardarBool(Ambiente.CHAVE_BLOQUEIO_TOTAL, disp.ecraBloqueadoAgora)
         }
     }
 

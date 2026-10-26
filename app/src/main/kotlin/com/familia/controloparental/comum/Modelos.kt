@@ -81,7 +81,9 @@ data class Dispositivo(
     /** Controlado pelos pais: pede o PIN ao tentar desinstalar / desativar a proteção. */
     val pinProtecaoAtiva: Boolean = true,
     /** Controlado pelos pais: mostra o ecrã de bloqueio (apps, sites, horários). */
-    val bloqueioEcraAtivo: Boolean = true
+    val bloqueioEcraAtivo: Boolean = true,
+    /** Controlado pelos pais: bloqueia já o ecrã inteiro até eles desligarem. */
+    val ecraBloqueadoAgora: Boolean = false
 ) {
     fun estaOnline(agora: Long = System.currentTimeMillis()): Boolean =
         emparelhado && onlineDeclarado && ultimoSinal > 0 && (agora - ultimoSinal) < LIMITE_ONLINE_MS

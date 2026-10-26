@@ -297,16 +297,27 @@ private fun SeparadorResumo(c: ContextoPai, d: DadosFilho, agora: Long, aoAbrirM
         CartaoSecao("Controlos do ecrã (ligar / desligar)") {
             val escopo = rememberCoroutineScope()
             var erroCtl by remember { mutableStateOf<String?>(null) }
-            fun alterar(pin: Boolean? = null, bloqueio: Boolean? = null) {
+            fun alterar(pin: Boolean? = null, bloqueio: Boolean? = null, total: Boolean? = null) {
                 escopo.launch {
                     try {
-                        c.repo.definirControlosEcra(c.fid, disp.id, pin, bloqueio)
+                        c.repo.definirControlosEcra(c.fid, disp.id, pin, bloqueio, total)
                         erroCtl = null
                     } catch (e: Exception) {
                         erroCtl = traduzirErro(e)
                     }
                 }
             }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(if (disp.ecraBloqueadoAgora) "Ecrã BLOQUEADO agora" else "Bloquear o ecrã agora", style = MaterialTheme.typography.titleSmall)
+                    Text(
+                        "Cobre já o ecrã inteiro da criança até desligares aqui. Não pede PIN.",
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Switch(checked = disp.ecraBloqueadoAgora, onCheckedChange = { alterar(total = it) })
+            }
+            HorizontalDivider(Modifier.padding(vertical = 10.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text("Ecrã de bloqueio de apps e sites", style = MaterialTheme.typography.titleSmall)
