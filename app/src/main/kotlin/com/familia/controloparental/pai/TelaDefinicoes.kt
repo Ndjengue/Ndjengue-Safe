@@ -33,12 +33,13 @@ private fun LinhaDefinicao(icone: androidx.compose.ui.graphics.vector.ImageVecto
         Modifier.fillMaxWidth().clickable(onClick = aoClicar).padding(vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(icone, null, tint = MaterialTheme.colorScheme.primary)
-        Spacer(Modifier.width(16.dp))
+        IconeEmCirculo(icone, MaterialTheme.colorScheme.primary, 40.dp)
+        Spacer(Modifier.width(14.dp))
         Column(Modifier.weight(1f)) {
             Text(titulo, style = MaterialTheme.typography.titleMedium)
             Text(descricao, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
+        Icon(Icons.Filled.ChevronRight, null, tint = MaterialTheme.colorScheme.outline)
     }
 }
 
@@ -63,8 +64,15 @@ fun TelaDefinicoes(c: ContextoPai, aoSair: () -> Unit, aoAbrirSobre: () -> Unit,
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             CartaoSecao("Conta") {
-                Text(utilizador?.email.orEmpty(), style = MaterialTheme.typography.titleMedium)
-                Text("Conta dos pais", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 6.dp)) {
+                    AvatarCrianca(null, utilizador?.email.orEmpty().ifBlank { "Pai" }, 52.dp)
+                    Spacer(Modifier.width(14.dp))
+                    Column {
+                        Text(utilizador?.email.orEmpty(), style = MaterialTheme.typography.titleMedium)
+                        Text("Conta dos pais", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+                HorizontalDivider(Modifier.padding(vertical = 6.dp))
                 LinhaDefinicao(Icons.Filled.LockReset, "Alterar senha da conta", "Enviamos um e-mail com um link seguro") {
                     val email = utilizador?.email
                     if (email != null) escopo.launch {
@@ -78,30 +86,25 @@ fun TelaDefinicoes(c: ContextoPai, aoSair: () -> Unit, aoAbrirSobre: () -> Unit,
             }
 
             CartaoSecao("Notificações") {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) {
-                        Text("Avisar-me neste telemóvel", style = MaterialTheme.typography.titleMedium)
-                        Text(
-                            "Mostra notificações de pedidos, SOS e tentativas de desinstalação, mesmo com a app fechada.",
-                            style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    Switch(checked = monitorAtivo, onCheckedChange = { v ->
+                LinhaInterruptor(
+                    Icons.Filled.NotificationsActive, "Avisar-me neste telemóvel",
+                    "Notificações de pedidos, SOS e tentativas de desinstalação, mesmo com a app fechada.",
+                    monitorAtivo, { v ->
                         monitorAtivo = v
                         if (v && Build.VERSION.SDK_INT >= 33) lancadorNotif.launch(Manifest.permission.POST_NOTIFICATIONS)
                         ServicoMonitorPai.definirAtivo(ctx, v)
-                    })
-                }
+                    }
+                )
             }
 
             if (superAdmin) {
                 CartaoSecao("Administração") {
-                    LinhaDefinicao(Icons.Filled.Info, "Painel do Super Administrador", "Política de retenção, limpeza e auditoria", aoAbrirAdmin)
+                    LinhaDefinicao(Icons.Filled.AdminPanelSettings, "Painel do Super Administrador", "Política de retenção, limpeza e auditoria", aoAbrirAdmin)
                 }
             }
 
             CartaoSecao("Comunidade") {
-                LinhaDefinicao(Icons.Filled.Info, "Conversas e publicações", "Mensagens com a família e partilhas, com eliminação automática", aoAbrirComunidade)
+                LinhaDefinicao(Icons.Filled.Forum, "Conversas e publicações", "Mensagens com a família e partilhas, com eliminação automática", aoAbrirComunidade)
             }
 
             CartaoSecao("Aplicação") {

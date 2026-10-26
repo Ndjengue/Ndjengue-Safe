@@ -5,6 +5,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
@@ -16,6 +17,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
@@ -100,18 +102,52 @@ fun TelaFilho(
         }
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
-            Row(
-                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                AvatarCrianca(dispositivo.crianca.fotoBase64, dispositivo.nomeExibicao, 56.dp)
-                Spacer(Modifier.width(14.dp))
-                Column {
-                    Text(dispositivo.nomeExibicao, style = MaterialTheme.typography.titleLarge)
-                    when {
-                        !dispositivo.emparelhado -> EtiquetaEstado("A aguardar emparelhamento", CorAviso)
-                        online -> EtiquetaEstado("Online agora", VerdeEsmeralda)
-                        else -> EtiquetaEstado("Offline · ${tempoDecorrido(dispositivo.ultimoSinal, agora)}", TextoSecundario)
+            val ctxF = LocalContext.current
+            val escopoF = rememberCoroutineScope()
+            Column(Modifier.fundoDeMarca().padding(horizontal = 16.dp, vertical = 14.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    AvatarCrianca(dispositivo.crianca.fotoBase64, dispositivo.nomeExibicao, 60.dp)
+                    Spacer(Modifier.width(14.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(dispositivo.nomeExibicao, style = MaterialTheme.typography.titleLarge, color = Color.White, maxLines = 1)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                Modifier.size(9.dp).clip(androidx.compose.foundation.shape.CircleShape)
+                                    .background(if (online) VerdeClaro else Color.White.copy(alpha = 0.55f))
+                            )
+                            Spacer(Modifier.width(6.dp))
+                            Text(
+                                when {
+                                    !dispositivo.emparelhado -> "A aguardar emparelhamento"
+                                    online -> "Online agora"
+                                    else -> "Offline · ${tempoDecorrido(dispositivo.ultimoSinal, agora)}"
+                                },
+                                color = Color.White.copy(alpha = 0.92f), style = MaterialTheme.typography.bodyMedium
+                            )
+                        }
+                        val extra = buildList {
+                            if (dispositivo.bateria >= 0) add("🔋 ${dispositivo.bateria}%" + if (dispositivo.aCarregar) " ⚡" else "")
+                            if (dispositivo.rede.isNotBlank() && online) add(dispositivo.rede)
+                            if (dispositivo.nome.isNotBlank()) add(dispositivo.nome)
+                        }.joinToString("  ·  ")
+                        if (extra.isNotBlank()) Text(extra, color = Color.White.copy(alpha = 0.78f), style = MaterialTheme.typography.bodyMedium, maxLines = 1)
+                    }
+                }
+                Spacer(Modifier.height(14.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                    AcaoRapida(Icons.Filled.Chat, "Conversar", Modifier.weight(1f), aoClicar = aoAbrirConversa)
+                    AcaoRapida(Icons.Filled.Map, "Mapa", Modifier.weight(1f), aoClicar = aoAbrirMapa)
+                    if (dispositivo.crianca.telefone.isNotBlank()) {
+                        AcaoRapida(Icons.Filled.Call, "Ligar", Modifier.weight(1f)) { ligarPara(ctxF, dispositivo.crianca.telefone) }
+                    }
+                    AcaoRapida(
+                        if (dispositivo.ecraBloqueadoAgora) Icons.Filled.LockOpen else Icons.Filled.Lock,
+                        if (dispositivo.ecraBloqueadoAgora) "Libertar" else "Bloquear",
+                        Modifier.weight(1f), realce = !dispositivo.ecraBloqueadoAgora
+                    ) {
+                        escopoF.launch {
+                            try { c.repo.definirControlosEcra(c.fid, dispositivo.id, bloqueioTotal = !dispositivo.ecraBloqueadoAgora) } catch (_: Exception) {}
+                        }
                     }
                 }
             }
@@ -251,19 +287,17 @@ private fun SeparadorResumo(c: ContextoPai, d: DadosFilho, agora: Long, aoAbrirM
             }
         }
 
-        CartaoSecao("Estado do telemóvel") {
-            Text(if (disp.estaOnline(agora)) "Online agora" else "Offline · visto ${tempoDecorrido(disp.ultimoSinal, agora)}")
-            if (disp.nome.isNotBlank()) Text("Aparelho: ${disp.nome}", color = MaterialTheme.colorScheme.onSurfaceVariant)
-            if (disp.bateria >= 0) {
-                Text(
-                    "Bateria: ${disp.bateria}%" + if (disp.aCarregar) " (a carregar)" else "",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            if (disp.rede.isNotBlank()) Text("Rede: ${disp.rede}", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+            BlocoMetrica(Icons.Filled.Schedule, formatarDuracao(hoje?.totalMs ?: 0L), "Ecrã hoje", MaterialTheme.colorScheme.primary, Modifier.weight(1f))
+            BlocoMetrica(Icons.Filled.Block, "$bloqueiosHoje", "Bloqueios hoje", CorAviso, Modifier.weight(1f))
+            BlocoMetrica(
+                if (disp.aCarregar) Icons.Filled.BatteryChargingFull else Icons.Filled.BatteryFull,
+                if (disp.bateria >= 0) "${disp.bateria}%" else "—", "Bateria",
+                if (disp.bateria in 0..15 && !disp.aCarregar) CorErro else VerdeEsmeralda, Modifier.weight(1f)
+            )
         }
 
-        CartaoSecao("Localização") {
+        CartaoSecao("Localização", icone = Icons.Filled.LocationOn) {
             if (loc == null) {
                 Text("Ainda sem posição. Assim que a criança ativar a localização, aparece aqui.", color = MaterialTheme.colorScheme.onSurfaceVariant)
             } else {
@@ -287,7 +321,13 @@ private fun SeparadorResumo(c: ContextoPai, d: DadosFilho, agora: Long, aoAbrirM
             }
         }
 
-        CartaoSecao("Proteções") {
+        val pr = disp.protecao
+        val feitasP = listOf(pr.acessibilidadeAtiva, pr.adminAtivo, pr.vpnAtiva, pr.localizacaoSempre, pr.usoAppsPermitido).count { it }
+        CartaoSecao("Proteções · $feitasP/5 ativas", icone = Icons.Filled.Security) {
+            LinearProgressIndicator(
+                progress = { feitasP / 5f }, modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp).height(6.dp),
+                color = if (feitasP == 5) VerdeEsmeralda else CorAviso, trackColor = MaterialTheme.colorScheme.surfaceVariant
+            )
             LinhaProtecao("Bloqueio de apps (acessibilidade)", disp.protecao.acessibilidadeAtiva)
             LinhaProtecao("Proteção contra desinstalação", disp.protecao.adminAtivo)
             LinhaProtecao("Filtro de sites", disp.protecao.vpnAtiva)
@@ -295,7 +335,7 @@ private fun SeparadorResumo(c: ContextoPai, d: DadosFilho, agora: Long, aoAbrirM
             LinhaProtecao("Tempo de ecrã", disp.protecao.usoAppsPermitido)
         }
 
-        CartaoSecao("Controlos do ecrã (ligar / desligar)") {
+        CartaoSecao("Controlos do ecrã", icone = Icons.Filled.Tune) {
             val escopo = rememberCoroutineScope()
             var erroCtl by remember { mutableStateOf<String?>(null) }
             fun alterar(pin: Boolean? = null, bloqueio: Boolean? = null, total: Boolean? = null) {
@@ -308,47 +348,28 @@ private fun SeparadorResumo(c: ContextoPai, d: DadosFilho, agora: Long, aoAbrirM
                     }
                 }
             }
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text(if (disp.ecraBloqueadoAgora) "Ecrã BLOQUEADO agora" else "Bloquear o ecrã agora", style = MaterialTheme.typography.titleSmall)
-                    Text(
-                        "Cobre já o ecrã inteiro da criança até desligares aqui. Não pede PIN.",
-                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                Switch(checked = disp.ecraBloqueadoAgora, onCheckedChange = { alterar(total = it) })
-            }
-            HorizontalDivider(Modifier.padding(vertical = 10.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text("Ecrã de bloqueio de apps e sites", style = MaterialTheme.typography.titleSmall)
-                    Text(
-                        "Mostra o aviso e o pedido de liberação quando algo está bloqueado. Desligado, a criança usa tudo livremente.",
-                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                Switch(checked = disp.bloqueioEcraAtivo, onCheckedChange = { alterar(bloqueio = it) })
-            }
-            HorizontalDivider(Modifier.padding(vertical = 10.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text("PIN de administrador", style = MaterialTheme.typography.titleSmall)
-                    Text(
-                        "Pede o PIN só ao tentar desinstalar ou desativar a proteção. Desligado, o telemóvel nunca pede o PIN.",
-                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                Switch(checked = disp.pinProtecaoAtiva, onCheckedChange = { alterar(pin = it) })
-            }
+            LinhaInterruptor(
+                Icons.Filled.Lock,
+                if (disp.ecraBloqueadoAgora) "Ecrã bloqueado agora" else "Bloquear o ecrã agora",
+                "Cobre já o ecrã inteiro da criança até desligares. Não pede PIN.",
+                disp.ecraBloqueadoAgora, { alterar(total = it) }, CorErro
+            )
+            HorizontalDivider(Modifier.padding(vertical = 6.dp))
+            LinhaInterruptor(
+                Icons.Filled.Block, "Aviso de bloqueio de apps e sites",
+                "Mostra o aviso e o pedido de liberação. Desligado, a criança usa tudo livremente.",
+                disp.bloqueioEcraAtivo, { alterar(bloqueio = it) }, CorAviso
+            )
+            HorizontalDivider(Modifier.padding(vertical = 6.dp))
+            LinhaInterruptor(
+                Icons.Filled.Pin, "PIN de administrador",
+                "Pedido só ao desinstalar ou desativar a proteção. Desligado, nunca pede o PIN.",
+                disp.pinProtecaoAtiva, { alterar(pin = it) }
+            )
             MensagemErro(erroCtl)
         }
 
-        CartaoSecao("Hoje") {
-            Text("Tempo de ecrã: ${formatarDuracao(hoje?.totalMs ?: 0L)}")
-            Text("Bloqueios: $bloqueiosHoje", color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-
-        CartaoSecao("Contactar ${disp.nomeExibicao}") {
+        CartaoSecao("Contactar ${disp.nomeExibicao}", icone = Icons.Filled.Chat) {
             Button(onClick = aoAbrirConversa, modifier = Modifier.fillMaxWidth().height(52.dp)) {
                 Icon(Icons.Filled.Chat, null); Spacer(Modifier.width(10.dp)); Text("Conversar na app (mensagens e chamadas)")
             }

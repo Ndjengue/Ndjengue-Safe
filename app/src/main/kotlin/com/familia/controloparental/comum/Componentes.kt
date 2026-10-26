@@ -97,6 +97,7 @@ fun EstadoVazio(icone: ImageVector, titulo: String, descricao: String, modifier:
 fun CartaoSecao(
     titulo: String,
     modifier: Modifier = Modifier,
+    icone: ImageVector? = null,
     conteudo: @Composable ColumnScope.() -> Unit
 ) {
     Card(
@@ -107,8 +108,14 @@ fun CartaoSecao(
     ) {
         Column(Modifier.padding(16.dp)) {
             if (titulo.isNotBlank()) {
-                Text(titulo, style = MaterialTheme.typography.titleMedium)
-                Spacer(Modifier.height(10.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (icone != null) {
+                        IconeEmCirculo(icone, MaterialTheme.colorScheme.primary, 32.dp)
+                        Spacer(Modifier.width(10.dp))
+                    }
+                    Text(titulo, style = MaterialTheme.typography.titleMedium)
+                }
+                Spacer(Modifier.height(12.dp))
             }
             conteudo()
         }
@@ -121,6 +128,80 @@ fun MensagemErro(texto: String?) {
     if (texto.isNullOrBlank()) return
     Spacer(Modifier.height(8.dp))
     Text(texto, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
+}
+
+/** Ícone sobre um círculo suave da mesma cor. */
+@Composable
+fun IconeEmCirculo(icone: ImageVector, cor: Color, tamanho: Dp = 40.dp) {
+    Box(
+        Modifier.size(tamanho).clip(CircleShape).background(cor.copy(alpha = 0.14f)),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(icone, contentDescription = null, tint = cor, modifier = Modifier.size(tamanho * 0.55f))
+    }
+}
+
+/** Linha de definição com ícone, título, descrição e interruptor. */
+@Composable
+fun LinhaInterruptor(
+    icone: ImageVector, titulo: String, descricao: String,
+    marcado: Boolean, aoMudar: (Boolean) -> Unit,
+    cor: Color = MaterialTheme.colorScheme.primary
+) {
+    Row(
+        Modifier.fillMaxWidth().padding(vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        IconeEmCirculo(icone, cor, 40.dp)
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f)) {
+            Text(titulo, style = MaterialTheme.typography.titleMedium)
+            Text(descricao, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        Spacer(Modifier.width(8.dp))
+        Switch(checked = marcado, onCheckedChange = aoMudar)
+    }
+}
+
+/** Bloco com um número em destaque (tempo de ecrã, bloqueios, bateria...). */
+@Composable
+fun BlocoMetrica(icone: ImageVector, valor: String, rotulo: String, cor: Color, modifier: Modifier = Modifier) {
+    Surface(
+        modifier = modifier, shape = MaterialTheme.shapes.large,
+        color = cor.copy(alpha = 0.10f)
+    ) {
+        Column(Modifier.padding(horizontal = 12.dp, vertical = 14.dp)) {
+            Icon(icone, null, tint = cor, modifier = Modifier.size(20.dp))
+            Spacer(Modifier.height(8.dp))
+            Text(valor, style = MaterialTheme.typography.titleLarge, maxLines = 1, softWrap = false)
+            Text(rotulo, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+        }
+    }
+}
+
+/** Botão de ação rápida: ícone em cima, texto numa linha por baixo. */
+@Composable
+fun AcaoRapida(
+    icone: ImageVector, rotulo: String, modifier: Modifier = Modifier,
+    realce: Boolean = false, aoClicar: () -> Unit
+) {
+    val cor = if (realce) CorErro else MaterialTheme.colorScheme.primary
+    Surface(
+        onClick = aoClicar, modifier = modifier, shape = MaterialTheme.shapes.large,
+        color = if (realce) CorErro else MaterialTheme.colorScheme.surface,
+        shadowElevation = 1.dp
+    ) {
+        Column(
+            Modifier.padding(vertical = 12.dp, horizontal = 4.dp).fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Icon(icone, null, tint = if (realce) Color.White else cor, modifier = Modifier.size(24.dp))
+            Text(
+                rotulo, maxLines = 1, softWrap = false, style = MaterialTheme.typography.labelLarge,
+                color = if (realce) Color.White else MaterialTheme.colorScheme.onSurface
+            )
+        }
+    }
 }
 
 @Suppress("unused")
