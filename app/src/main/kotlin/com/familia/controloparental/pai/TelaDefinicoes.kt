@@ -1,7 +1,10 @@
 package com.familia.controloparental.pai
 
 import android.Manifest
+import android.content.Intent
+import android.net.Uri
 import android.os.Build
+import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
@@ -17,6 +20,10 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import com.familia.controloparental.servico.AlertaSos
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
@@ -26,6 +33,11 @@ import com.google.firebase.auth.EmailAuthProvider
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
+
+private fun ecraInteiroPermitido(ctx: android.content.Context): Boolean =
+    if (Build.VERSION.SDK_INT >= 34)
+        (ctx.getSystemService(android.content.Context.NOTIFICATION_SERVICE) as android.app.NotificationManager).canUseFullScreenIntent()
+    else true
 
 @Composable
 private fun LinhaDefinicao(icone: androidx.compose.ui.graphics.vector.ImageVector, titulo: String, descricao: String, aoClicar: () -> Unit) {
@@ -51,6 +63,18 @@ fun TelaDefinicoes(c: ContextoPai, aoSair: () -> Unit, aoAbrirSobre: () -> Unit,
     val utilizador = FirebaseAuth.getInstance().currentUser
     var monitorAtivo by remember { mutableStateOf(ServicoMonitorPai.ativo(ctx)) }
     var mostrarPin by remember { mutableStateOf(false) }
+    var sobrepor by remember { mutableStateOf(AlertaSos.podeSobrepor(ctx)) }
+    var ecraInteiro by remember { mutableStateOf(ecraInteiroPermitido(ctx)) }
+    val ciclo = LocalLifecycleOwner.current
+    DisposableEffect(ciclo) {
+        val obs = LifecycleEventObserver { _, ev ->
+            if (ev == Lifecycle.Event.ON_RESUME) {
+                sobrepor = AlertaSos.podeSobrepor(ctx); ecraInteiro = ecraInteiroPermitido(ctx)
+            }
+        }
+        ciclo.lifecycle.addObserver(obs)
+        onDispose { ciclo.lifecycle.removeObserver(obs) }
+    }
     var mensagem by remember { mutableStateOf<String?>(null) }
 
     var superAdmin by remember { mutableStateOf(false) }
@@ -95,6 +119,32 @@ fun TelaDefinicoes(c: ContextoPai, aoSair: () -> Unit, aoAbrirSobre: () -> Unit,
                         ServicoMonitorPai.definirAtivo(ctx, v)
                     }
                 )
+                HorizontalDivider(Modifier.padding(vertical = 6.dp))
+                LinhaDefinicao(
+                    Icons.Filled.Sos, "SOS por cima de outras apps",
+                    if (sobrepor) "Ativo: o pedido de ajuda aparece no ecrã, mesmo a usar outra app."
+                    else "Desligado. Toca para permitir que o SOS da criança apareça por cima de tudo."
+                ) {
+                    try {
+                        ctx.startActivity(
+                            Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:${ctx.packageName}"))
+                                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        )
+                    } catch (_: Exception) {}
+                }
+                if (!ecraInteiro) {
+                    LinhaDefinicao(
+                        Icons.Filled.ScreenLockPortrait, "Alertas em ecrã inteiro",
+                        "Desligado. Toca para permitir que o SOS acenda o ecrã bloqueado."
+                    ) {
+                        try {
+                            ctx.startActivity(
+                                Intent("android.settings.MANAGE_APP_USE_FULL_SCREEN_INTENT", Uri.parse("package:${ctx.packageName}"))
+                                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            )
+                        } catch (_: Exception) {}
+                    }
+                }
             }
 
             if (superAdmin) {

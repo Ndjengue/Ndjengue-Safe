@@ -15,6 +15,7 @@ object Notificacoes {
     const val CANAL_ALERTAS = "alertas_pais"
     const val CANAL_CHAMADAS = "chamadas_v1"
     const val CANAL_MENSAGENS = "mensagens_v1"
+    const val CANAL_SOS = "sos_v1"
 
     fun garantirCanais(ctx: Context) {
         if (Build.VERSION.SDK_INT < 26) return
@@ -48,6 +49,18 @@ object Notificacoes {
                 enableVibration(true)
                 vibrationPattern = longArrayOf(0, 800, 700, 800, 700, 800)
                 lockscreenVisibility = android.app.Notification.VISIBILITY_PUBLIC
+            }
+        )
+        nm.createNotificationChannel(
+            NotificationChannel(CANAL_SOS, "Pedidos de ajuda (SOS)", NotificationManager.IMPORTANCE_HIGH).apply {
+                description = "Aviso urgente quando a criança pede ajuda."
+                setSound(
+                    android.media.RingtoneManager.getDefaultUri(android.media.RingtoneManager.TYPE_ALARM),
+                    android.media.AudioAttributes.Builder().setUsage(android.media.AudioAttributes.USAGE_ALARM).build()
+                )
+                enableVibration(true)
+                lockscreenVisibility = android.app.Notification.VISIBILITY_PUBLIC
+                setBypassDnd(true)
             }
         )
         nm.createNotificationChannel(

@@ -131,6 +131,10 @@ class ServicoMonitorPai : Service() {
                 if (novos.isNotEmpty()) {
                     prefs.edit().putLong("ultimo_alerta", novos.maxOf { it.criadoEm }).apply()
                     novos.forEach { a ->
+                        if (a.tipo == TipoAlerta.PEDIDO_AJUDA) {
+                            AlertaSos.mostrar(this@ServicoMonitorPai, fid, a.id, a.criancaNome.ifBlank { "A criança" }, a.mensagem)
+                            return@forEach
+                        }
                         Notificacoes.mostrar(
                             this@ServicoMonitorPai, 7000 + (a.id.hashCode() and 0xFFF), Notificacoes.CANAL_ALERTAS,
                             if (a.tipo == TipoAlerta.PEDIDO_AJUDA) "🆘 ${a.criancaNome.ifBlank { "A criança" }} pediu ajuda"
