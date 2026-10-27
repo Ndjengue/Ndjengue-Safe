@@ -167,7 +167,7 @@ class FirestoreRepositorio(
                 "ultimoSinal" to FieldValue.serverTimestamp()
             )
         ).await()
-        db.collection("convites").document(convite.codigo).delete()
+        db.collection("convites").document(convite.codigo).delete().await() // uso único: o código deixa de existir
     }
 
     suspend fun cancelarConvite(codigo: String) {

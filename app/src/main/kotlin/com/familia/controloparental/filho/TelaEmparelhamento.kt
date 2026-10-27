@@ -6,6 +6,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Link
+import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -36,7 +37,7 @@ fun TelaEmparelhamento(aoVoltar: () -> Unit, aoConcluir: () -> Unit) {
     var erro by remember { mutableStateOf<String?>(null) }
     val escopo = rememberCoroutineScope()
 
-    fun emparelhar() {
+    fun emparelhar(cod: String) {
         erro = null
         aEmparelhar = true
         escopo.launch {
@@ -47,7 +48,7 @@ fun TelaEmparelhamento(aoVoltar: () -> Unit, aoConcluir: () -> Unit) {
                     ?: throw IllegalStateException("Não foi possível identificar este telemóvel.")
 
                 val repo = Ambiente.repo
-                val convite = repo.lerConvite(codigo)
+                val convite = repo.lerConvite(cod)
                 if (convite == null) {
                     erro = "Código inválido ou expirado. Pede um novo código aos teus pais."
                     aEmparelhar = false
@@ -109,9 +110,32 @@ fun TelaEmparelhamento(aoVoltar: () -> Unit, aoConcluir: () -> Unit) {
                 Spacer(Modifier.height(10.dp))
                 Text(it, color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center)
             }
-            Spacer(Modifier.height(20.dp))
+            Spacer(Modifier.height(12.dp))
+            OutlinedButton(
+                enabled = !aEmparelhar,
+                onClick = {
+                    try {
+                        val opcoes = com.google.mlkit.vision.codescanner.GmsBarcodeScannerOptions.Builder()
+                            .setBarcodeFormats(com.google.mlkit.vision.barcode.common.Barcode.FORMAT_QR_CODE).build()
+                        com.google.mlkit.vision.codescanner.GmsBarcodeScanning.getClient(contexto, opcoes).startScan()
+                            .addOnSuccessListener { b ->
+                                val c = com.familia.controloparental.comum.CodigoQr.extrairCodigo(b.rawValue)
+                                if (c != null) { codigo = c; emparelhar(c) } else erro = "Este QR code não é do $NOME_APP."
+                            }
+                            .addOnFailureListener { erro = "Não foi possível ler o QR code. Escreve o código." }
+                    } catch (_: Exception) {
+                        erro = "Não foi possível abrir o leitor de QR. Escreve o código."
+                    }
+                },
+                modifier = Modifier.fillMaxWidth().height(48.dp)
+            ) {
+                androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.Filled.QrCodeScanner, null)
+                Spacer(Modifier.width(8.dp))
+                Text("Ler QR code")
+            }
+            Spacer(Modifier.height(12.dp))
             Button(
-                onClick = { emparelhar() },
+                onClick = { emparelhar(codigo) },
                 enabled = codigo.length == 6 && !aEmparelhar,
                 modifier = Modifier.fillMaxWidth().height(52.dp)
             ) {

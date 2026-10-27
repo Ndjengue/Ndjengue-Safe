@@ -25,6 +25,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
@@ -103,6 +104,7 @@ fun TelaFormularioFilho(
         erroGeral = null
         escopo.launch {
             try {
+                if (codigo.isNotBlank()) try { c.repo.cancelarConvite(codigo) } catch (_: Exception) {}
                 val did = didNovo ?: c.repo.criarDispositivoPendente(c.fid, perfil()).also { didNovo = it }
                 val (cod, exp) = c.repo.gerarConvite(c.fid, did)
                 codigo = cod
@@ -314,6 +316,15 @@ private fun PassoCodigo(
             }
         }
         Spacer(Modifier.height(14.dp))
+        if (!expirado && codigo.isNotBlank()) {
+            val qr = remember(codigo) { com.familia.controloparental.comum.CodigoQr.gerar(com.familia.controloparental.comum.CodigoQr.conteudoDe(codigo)).asImageBitmap() }
+            Surface(shape = MaterialTheme.shapes.large, color = Color.White, shadowElevation = 2.dp) {
+                androidx.compose.foundation.Image(qr, "QR code de emparelhamento", Modifier.padding(12.dp).size(190.dp))
+            }
+            Text("ou aponta a câmara do telemóvel da criança a este QR code", style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 8.dp))
+            Spacer(Modifier.height(14.dp))
+        }
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             OutlinedButton(enabled = !expirado, onClick = {
                 val i = Intent(Intent.ACTION_SEND).apply {
@@ -334,7 +345,7 @@ private fun PassoCodigo(
             listOf(
                 "Instala a app $NOME_APP.",
                 "Abre-a e escolhe \"Sou o dispositivo da criança\".",
-                "Escreve o código acima e segue os passos de ativação."
+                "Escreve o código acima (ou lê o QR code) e segue os passos de ativação."
             ).forEachIndexed { i, t ->
                 Row(Modifier.padding(vertical = 5.dp)) {
                     Surface(shape = CircleShape, color = MaterialTheme.colorScheme.primary, modifier = Modifier.size(26.dp)) {

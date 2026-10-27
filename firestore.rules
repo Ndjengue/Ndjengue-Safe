@@ -58,7 +58,10 @@ service cloud.firestore {
             request.resource.data.papel == 'filho' &&
             exists(/databases/$(database)/documents/convites/$(request.resource.data.codigo)) &&
             get(/databases/$(database)/documents/convites/$(request.resource.data.codigo)).data.familiaId == fid &&
-            get(/databases/$(database)/documents/convites/$(request.resource.data.codigo)).data.expiraEm > request.time.toMillis()
+            get(/databases/$(database)/documents/convites/$(request.resource.data.codigo)).data.expiraEm > request.time.toMillis() &&
+            // o convite é para ESTE dispositivo e o dispositivo ainda não foi emparelhado (uso único)
+            request.resource.data.dispositivoId == get(/databases/$(database)/documents/convites/$(request.resource.data.codigo)).data.dispositivoId &&
+            get(/databases/$(database)/documents/familias/$(fid)/dispositivos/$(request.resource.data.dispositivoId)).data.emparelhado == false
           )
         );
         allow update: if false;
