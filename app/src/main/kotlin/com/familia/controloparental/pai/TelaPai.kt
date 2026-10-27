@@ -165,6 +165,10 @@ private fun ShellPai(fid: String, aoSair: () -> Unit) {
     LaunchedEffect(Unit) { ServicoMonitorPai.iniciarSeAtivo(ctx) }
 
     val nav = rememberNavController()
+    val pedidoChat = com.familia.controloparental.comunidade.GestorChat.abrirConversaId
+    LaunchedEffect(pedidoChat) {
+        if (pedidoChat != null) navegarTab(nav, "comunidade")
+    }
     val entrada by nav.currentBackStackEntryAsState()
     val rota = entrada?.destination?.route ?: "inicio"
     val mostrarBarra = rota == "inicio" || rota.startsWith("mapa") || rota == "alertas" || rota == "comunidade" || rota == "definicoes"

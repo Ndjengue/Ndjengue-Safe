@@ -55,19 +55,40 @@ class ComunidadeRepositorio(
 
     suspend fun enviarMensagem(
         conversaId: String, texto: String, audioBase64: String? = null,
-        respostaAutorUid: String? = null, respostaTexto: String? = null
+        respostaAutorUid: String? = null, respostaTexto: String? = null,
+        imagemBase64: String? = null, reencaminhada: Boolean = false
     ) {
-        validarAnexo(audioBase64)
+        validarAnexo(audioBase64); validarAnexo(imagemBase64)
         val dados = hashMapOf<String, Any?>(
             "conversaId" to conversaId, "autorUid" to uid(), "texto" to texto, "audioBase64" to audioBase64,
-            "anexoBytes" to (audioBase64?.length ?: 0).toLong(),
+            "anexoBytes" to ((audioBase64?.length ?: 0) + (imagemBase64?.length ?: 0)).toLong(),
             "criadoEm" to FieldValue.serverTimestamp(), "expiresAt" to expira()
         )
+        if (imagemBase64 != null) dados["imagemBase64"] = imagemBase64
+        if (reencaminhada) dados["reencaminhada"] = true
         if (!respostaAutorUid.isNullOrBlank()) {
             dados["respostaAutorUid"] = respostaAutorUid
             dados["respostaTexto"] = (respostaTexto ?: "").take(140)
         }
         db.collection("mensagens").add(dados).await()
+        // Pré-visualização da lista de conversas (como no WhatsApp). Falhar aqui não impede o envio.
+        try {
+            db.collection("conversas").document(conversaId).update(
+                mapOf(
+                    "ultimaTexto" to (if (texto.isBlank() && imagemBase64 != null) "📷 Imagem" else texto).take(100),
+                    "ultimaEm" to FieldValue.serverTimestamp(), "ultimaAutor" to uid()
+                )
+            ).await()
+        } catch (_: Exception) {
+        }
+    }
+
+    /** Marca as conversas como lidas por mim (apaga o indicador de "nova" na lista). */
+    suspend fun marcarLidas(conversaIds: List<String>) {
+        val eu = uid()
+        for (id in conversaIds) {
+            try { db.collection("conversas").document(id).update("lidoEm.$eu", FieldValue.serverTimestamp()).await() } catch (_: Exception) {}
+        }
     }
 
     /** Edita o texto de uma mensagem própria (janela de 15 minutos, validada também nas regras). */

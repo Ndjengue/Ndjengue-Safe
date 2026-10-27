@@ -103,6 +103,7 @@ class ServicoSincronizacao : Service() {
         if (!iniciado) {
             iniciado = true
             EscutaChamadas.iniciar(this)
+        EscutaMensagens.iniciar(this)
             escopo.launch { arrancar() }
         }
         return START_STICKY
@@ -446,6 +447,7 @@ class ServicoSincronizacao : Service() {
 
     override fun onDestroy() {
         EscutaChamadas.parar()
+        EscutaMensagens.parar()
         pararLocalizacao()
         receptorDesligar?.let { try { unregisterReceiver(it) } catch (_: Exception) {} }
         receptorPacotes?.let { try { unregisterReceiver(it) } catch (_: Exception) {} }

@@ -2,11 +2,18 @@ package com.familia.controloparental.comunidade
 
 data class Contacto(val uid: String, val nome: String)
 
-data class Conversa(val id: String, val participantes: List<String>, val nomes: Map<String, String>, val criadoEm: Long)
+data class Conversa(
+    val id: String, val participantes: List<String>, val nomes: Map<String, String>, val criadoEm: Long,
+    val ultimaTexto: String = "", val ultimaEm: Long = 0L, val ultimaAutor: String = "",
+    val lidoEm: Map<String, Long> = emptyMap(),
+    /** Quando várias conversas são da mesma pessoa (ex.: telemóvel reinstalado), a lista mostra uma só. */
+    val todosIds: List<String> = emptyList(), val naoLida: Boolean = false
+)
 
 data class MensagemChat(
     val id: String, val autorUid: String, val texto: String, val criadoEm: Long, val expiresAt: Long,
-    val editadoEm: Long = 0L, val respostaAutorUid: String = "", val respostaTexto: String = ""
+    val editadoEm: Long = 0L, val respostaAutorUid: String = "", val respostaTexto: String = "",
+    val imagemBase64: String = "", val reencaminhada: Boolean = false
 )
 
 /** Presença de uma conta: [visivel] = false quando a pessoa escolheu aparecer offline. */

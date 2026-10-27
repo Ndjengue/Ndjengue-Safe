@@ -14,6 +14,7 @@ object Notificacoes {
     const val CANAL_AVISOS = "avisos"
     const val CANAL_ALERTAS = "alertas_pais"
     const val CANAL_CHAMADAS = "chamadas_v1"
+    const val CANAL_MENSAGENS = "mensagens_v1"
 
     fun garantirCanais(ctx: Context) {
         if (Build.VERSION.SDK_INT < 26) return
@@ -26,6 +27,13 @@ object Notificacoes {
         nm.createNotificationChannel(
             NotificationChannel(CANAL_AVISOS, "Avisos", NotificationManager.IMPORTANCE_DEFAULT).apply {
                 description = "Sites bloqueados e respostas aos pedidos."
+            }
+        )
+        nm.createNotificationChannel(
+            NotificationChannel(CANAL_MENSAGENS, "Mensagens", NotificationManager.IMPORTANCE_HIGH).apply {
+                description = "Novas mensagens das conversas."
+                enableVibration(true)
+                lockscreenVisibility = android.app.Notification.VISIBILITY_PRIVATE
             }
         )
         nm.createNotificationChannel(

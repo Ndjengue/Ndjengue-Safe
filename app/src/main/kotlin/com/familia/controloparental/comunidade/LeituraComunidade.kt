@@ -41,7 +41,12 @@ class LeituraComunidade(
                         Conversa(
                             d.id,
                             (d.get("participantes") as? List<*>)?.map { it.toString() } ?: emptyList(),
-                            nomesDe(d), ms(d, "criadoEm")
+                            nomesDe(d), ms(d, "criadoEm"),
+                            ultimaTexto = d.getString("ultimaTexto") ?: "", ultimaEm = ms(d, "ultimaEm"),
+                            ultimaAutor = d.getString("ultimaAutor") ?: "",
+                            lidoEm = (d.get("lidoEm") as? Map<*, *>)?.entries?.associate {
+                                it.key.toString() to ((it.value as? com.google.firebase.Timestamp)?.toDate()?.time ?: 0L)
+                            } ?: emptyMap()
                         )
                     }?.sortedByDescending { it.criadoEm } ?: emptyList()
                 )
@@ -49,8 +54,12 @@ class LeituraComunidade(
         awaitClose { reg.remove() }
     }
 
-    fun observarMensagens(conversaId: String): Flow<List<MensagemChat>> = callbackFlow {
-        val reg = db.collection("mensagens").whereEqualTo("conversaId", conversaId)
+    fun observarMensagens(conversaIds: List<String>): Flow<List<MensagemChat>> = callbackFlow {
+        val ids = conversaIds.distinct().take(30)
+        if (ids.isEmpty()) {
+            trySend(emptyList()); close(); return@callbackFlow
+        }
+        val reg = db.collection("mensagens").whereIn("conversaId", ids)
             .addSnapshotListener { snap, erro ->
                 if (erro != null) {
                     close(erro)
@@ -62,7 +71,8 @@ class LeituraComunidade(
                         MensagemChat(
                             d.id, d.getString("autorUid") ?: "", d.getString("texto") ?: "", ms(d, "criadoEm"), ms(d, "expiresAt"),
                             editadoEm = ms(d, "editadoEm"),
-                            respostaAutorUid = d.getString("respostaAutorUid") ?: "", respostaTexto = d.getString("respostaTexto") ?: ""
+                            respostaAutorUid = d.getString("respostaAutorUid") ?: "", respostaTexto = d.getString("respostaTexto") ?: "",
+                            imagemBase64 = d.getString("imagemBase64") ?: "", reencaminhada = d.getBoolean("reencaminhada") == true
                         )
                     }?.filter { it.expiresAt > agora }?.sortedBy { it.criadoEm } ?: emptyList()
                 )

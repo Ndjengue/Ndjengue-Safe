@@ -90,6 +90,7 @@
         </service>
 
         <!-- Proteção contra desinstalação -->
+        <receiver android:name=".servico.RespostaMensagemReceiver" android:exported="false"/>
         <receiver
             android:name=".filho.AdminDispositivoReceiver"
             android:exported="true"

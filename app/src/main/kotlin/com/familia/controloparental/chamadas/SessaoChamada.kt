@@ -153,7 +153,16 @@ class SessaoChamada(
                             delay(1500)
                             terminar(apagar = true)
                         }
-                        PeerConnection.IceConnectionState.DISCONNECTED -> estado = "Ligação instável…"
+                        PeerConnection.IceConnectionState.DISCONNECTED -> {
+                            estado = "Ligação instável…"
+                            // Se não recuperar em 20 s (o outro lado fechou a app ou perdeu a rede), termina.
+                            delay(20_000)
+                            if (!terminada && estado == "Ligação instável…") {
+                                estado = "Chamada terminada"
+                                delay(800)
+                                terminar(apagar = true)
+                            }
+                        }
                         PeerConnection.IceConnectionState.CLOSED -> {}
                         else -> {}
                     }
@@ -267,6 +276,14 @@ class SessaoChamada(
                 return@addSnapshotListener
             }
             val est = snap.getString("estado")
+            if (est == Sinalizacao.ESTADO_TERMINADA) {
+                // O outro lado desligou: termina por completo aqui também.
+                escopo.launch {
+                    if (ligada) estado = "Chamada terminada"
+                    terminar(apagar = false)
+                }
+                return@addSnapshotListener
+            }
             if (est == Sinalizacao.ESTADO_RECUSADA) {
                 escopo.launch {
                     estado = "Chamada recusada"

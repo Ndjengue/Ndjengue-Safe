@@ -177,7 +177,12 @@ service cloud.firestore {
       allow read: if autenticado() && request.auth.uid in resource.data.participantes;
       allow create: if autenticado() && request.auth.uid in request.resource.data.participantes &&
         request.resource.data.participantes.size() == 2;
-      allow update, delete: if false;
+      // Pré-visualização da última mensagem e "lida por mim" (só os participantes, só estes campos).
+      allow update: if autenticado() && request.auth.uid in resource.data.participantes &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['ultimaTexto', 'ultimaEm', 'ultimaAutor', 'lidoEm']) &&
+        (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['ultimaEm']) || request.resource.data.ultimaEm == request.time) &&
+        (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['ultimaAutor']) || request.resource.data.ultimaAutor == request.auth.uid);
+      allow delete: if false;
     }
 
     // Códigos de amizade (15 min). Só se lê por get (não há listagem).

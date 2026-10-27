@@ -49,6 +49,7 @@ class MainActivity : ComponentActivity() {
         super.onStart()
         com.familia.controloparental.servico.EscutaChamadas.appVisivel = true
         androidx.core.app.NotificationManagerCompat.from(this).cancel(com.familia.controloparental.servico.EscutaChamadas.ID_NOTIFICACAO)
+        com.familia.controloparental.servico.EscutaMensagens.limparNotificacoes(this)
     }
 
     override fun onStop() {
@@ -60,6 +61,13 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         tratarChamada(intent)
+        tratarMensagem(intent)
+    }
+
+    /** Aberta pelo toque numa notificação de mensagem: abre a conversa. */
+    private fun tratarMensagem(intent: android.content.Intent?) {
+        val id = intent?.getStringExtra(com.familia.controloparental.servico.EscutaMensagens.EXTRA_CONVERSA) ?: return
+        com.familia.controloparental.comunidade.GestorChat.abrirConversaId = id
     }
 
     /** Aberta pela notificação de chamada: acende o ecrã por cima do bloqueio e, se pedido, atende. */
@@ -79,6 +87,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         tratarChamada(intent)
+        tratarMensagem(intent)
         setContent {
             TemaControloParental {
                 val ctx = LocalContext.current
@@ -124,6 +133,12 @@ class MainActivity : ComponentActivity() {
 private fun Navegacao(inicio: String) {
     val nav = rememberNavController()
     val ctx = LocalContext.current
+    val pedidoChat = com.familia.controloparental.comunidade.GestorChat.abrirConversaId
+    LaunchedEffect(pedidoChat) {
+        if (pedidoChat != null && CacheLocal(ctx).estaEmparelhado()) {
+            try { nav.navigate("filho_comunidade") { launchSingleTop = true } } catch (_: Exception) {}
+        }
+    }
     NavHost(navController = nav, startDestination = inicio) {
         composable("escolha_modo") { TelaEscolhaModo(nav) }
         composable("pai_login") { TelaLoginPai(nav) }

@@ -29,13 +29,18 @@ fun TelaComunidadePai(c: ContextoPai, aoVoltar: () -> Unit) {
         return
     }
     val nome = utilizador.displayName?.takeIf { it.isNotBlank() } ?: utilizador.email?.substringBefore('@') ?: "Encarregado"
+    // Uma pessoa = um contacto: se a mesma criança tem vários telemóveis/registos (reinstalação),
+    // fica o mais recente (pelo e-mail ou, na falta dele, pelo nome).
     val contactos = c.dispositivos
         .filter { it.emparelhado && it.uidAutenticacao.isNotBlank() }
+        .groupBy { (it.crianca.email.trim().lowercase().ifBlank { it.nomeExibicao.trim().lowercase() }) }
+        .values.map { g -> g.maxByOrNull { it.ultimoSinal }!! }
         .map { Contacto(it.uidAutenticacao, it.nomeExibicao) }
     val agora by com.familia.controloparental.pai.rememberAgora()
     // Estado REAL da criança (vem do dispositivo), mesmo que ela escolha "aparecer offline" para os amigos.
     val real = c.dispositivos
         .filter { it.emparelhado && it.uidAutenticacao.isNotBlank() }
+        .sortedBy { it.ultimoSinal }
         .associate { it.uidAutenticacao to (if (it.estaOnline(agora)) "online" else "visto ${com.familia.controloparental.comum.tempoDecorrido(it.ultimoSinal, agora)}") }
     TelaComunidade(Identidade(utilizador.uid, nome, contactos, podeAmizade = true, estadoReal = real), dias, aoVoltar)
 }

@@ -78,6 +78,9 @@ class Sinalizacao(
     }
 
     suspend fun terminar(id: String) {
+        // Primeiro avisa o outro lado (estado TERMINADA) e só depois apaga: se o apagar chegar tarde,
+        // o outro telemóvel já desligou.
+        try { ref(id).update("estado", ESTADO_TERMINADA).await() } catch (_: Exception) {}
         try {
             ref(id).delete().await()
         } catch (_: Exception) {
