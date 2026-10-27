@@ -27,6 +27,23 @@ import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material3.*
+import androidx.compose.ui.draw.clip
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.material.icons.automirrored.filled.Reply
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.unit.IntOffset
+import kotlinx.coroutines.delay
+import kotlin.math.roundToInt
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -46,9 +63,25 @@ fun TelaComunidade(identidade: Identidade, diasRetencao: Int?, aoVoltar: () -> U
     LaunchedEffect(identidade.nome) { com.familia.controloparental.chamadas.GestorChamadas.meuNome = identidade.nome }
     var aba by remember { mutableIntStateOf(0) }
 
+    // Presença: "aparecer offline" é só da criança; guardado neste telemóvel e enviado em pulsos de 30 s.
+    val ctxP = LocalContext.current
+    val prefsP = remember { ctxP.getSharedPreferences("presenca", android.content.Context.MODE_PRIVATE) }
+    var aparecerOffline by remember { mutableStateOf(prefsP.getBoolean("offline", false) && identidade.ehCrianca) }
+    LaunchedEffect(aparecerOffline) {
+        val repoP = ComunidadeRepositorio()
+        while (true) {
+            try { repoP.atualizarPresenca(!aparecerOffline) } catch (_: Exception) {}
+            delay(30_000)
+        }
+    }
+    val alterarOffline: (Boolean) -> Unit = { v ->
+        aparecerOffline = v
+        prefsP.edit().putBoolean("offline", v).apply()
+    }
+
     val c = conversaAberta
     if (c != null) {
-        TelaChat(identidade, c, aoVoltar = { conversaAberta = null })
+        TelaChat(identidade, c, aparecerOffline, alterarOffline, aoVoltar = { conversaAberta = null })
         return
     }
 
@@ -64,6 +97,21 @@ fun TelaComunidade(identidade: Identidade, diasRetencao: Int?, aoVoltar: () -> U
             TabRow(selectedTabIndex = aba) {
                 listOf("Conversas", "Publicações").forEachIndexed { i, t ->
                     Tab(selected = aba == i, onClick = { aba = i }, text = { Text(t) })
+                }
+            }
+            if (identidade.ehCrianca) {
+                Row(
+                    Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Aparecer offline", style = MaterialTheme.typography.titleSmall)
+                        Text(
+                            "Os teus amigos deixam de ver quando estás online. Os teus pais continuam a ver o estado real.",
+                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Switch(checked = aparecerOffline, onCheckedChange = alterarOffline)
                 }
             }
             Text(
@@ -227,16 +275,29 @@ private fun diaDe(ms: Long): Int {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun TelaChat(identidade: Identidade, conversa: Conversa, aoVoltar: () -> Unit) {
+private fun TelaChat(identidade: Identidade, conversa: Conversa, aparecerOffline: Boolean, aoAlterarOffline: (Boolean) -> Unit, aoVoltar: () -> Unit) {
     val leitura = remember { LeituraComunidade() }
     val repo = remember { ComunidadeRepositorio() }
     val escopo = rememberCoroutineScope()
     val mensagens by remember(conversa.id) { leitura.observarMensagens(conversa.id) }.collectAsState(initial = emptyList())
     var texto by remember { mutableStateOf("") }
     var erro by remember { mutableStateOf<String?>(null) }
+    var respondendo by remember { mutableStateOf<MensagemChat?>(null) }
+    var editando by remember { mutableStateOf<MensagemChat?>(null) }
+    var menuTopo by remember { mutableStateOf(false) }
     val lista = rememberLazyListState()
     val uidOutro = conversa.participantes.firstOrNull { it != identidade.uid } ?: ""
     val titulo = identidade.contactos.firstOrNull { it.uid == uidOutro }?.nome ?: conversa.nomes[uidOutro] ?: "Conversa"
+    val presenca by remember(uidOutro) { leitura.observarPresenca(uidOutro) }.collectAsState(initial = null)
+    val agoraP by produceState(System.currentTimeMillis()) { while (true) { delay(15_000); value = System.currentTimeMillis() } }
+    val subtitulo: String = run {
+        val real = identidade.estadoReal[uidOutro]
+        val p = presenca
+        if (real != null) real + if (p != null && !p.visivel) " · offline para os amigos" else ""
+        else if (p == null || !p.visivel || p.ultimoEm <= 0) "chamadas cifradas · não gravadas"
+        else if (agoraP - p.ultimoEm < 75_000) "online"
+        else "visto ${tempoDecorrido(p.ultimoEm, agoraP)}"
+    }
 
     LaunchedEffect(mensagens.size) { if (mensagens.isNotEmpty()) lista.animateScrollToItem(lista.layoutInfo.totalItemsCount.coerceAtLeast(1) - 1) }
 
@@ -256,7 +317,7 @@ private fun TelaChat(identidade: Identidade, conversa: Conversa, aoVoltar: () ->
                         Spacer(Modifier.width(10.dp))
                         Column {
                             Text(titulo, style = MaterialTheme.typography.titleMedium, maxLines = 1)
-                            Text("chamadas cifradas · não gravadas", style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = 0.75f))
+                            Text(subtitulo, style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = 0.85f), maxLines = 1)
                         }
                     }
                 },
@@ -267,6 +328,15 @@ private fun TelaChat(identidade: Identidade, conversa: Conversa, aoVoltar: () ->
                     }
                     IconButton(onClick = { com.familia.controloparental.chamadas.GestorChamadas.ligar(uidOutro, titulo, false, identidade.nome) }) {
                         Icon(Icons.Filled.Call, "Chamada de voz")
+                    }
+                    if (identidade.ehCrianca) {
+                        IconButton(onClick = { menuTopo = true }) { Icon(Icons.Filled.MoreVert, "Mais") }
+                        DropdownMenu(expanded = menuTopo, onDismissRequest = { menuTopo = false }) {
+                            DropdownMenuItem(
+                                text = { Text(if (aparecerOffline) "Voltar a aparecer online" else "Aparecer offline") },
+                                onClick = { menuTopo = false; aoAlterarOffline(!aparecerOffline) }
+                            )
+                        }
                     }
                 }
             )
@@ -316,10 +386,35 @@ private fun TelaChat(identidade: Identidade, conversa: Conversa, aoVoltar: () ->
                             }
                         }
                     }
-                    BalaoMensagem(m, minha = m.autorUid == identidade.uid, primeiraDoGrupo = primeiraDoGrupo)
+                    BalaoMensagem(
+                        m, minha = m.autorUid == identidade.uid, primeiraDoGrupo = primeiraDoGrupo,
+                        nomeDe = { uid -> if (uid == identidade.uid) "Tu" else titulo },
+                        aoResponder = { respondendo = m; editando = null },
+                        aoEditar = { editando = m; respondendo = null; texto = m.texto }
+                    )
                 }
             }
             MensagemErro(erro)
+            val alvoBanner = editando ?: respondendo
+            if (alvoBanner != null) {
+                Surface(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp).padding(top = 4.dp),
+                    shape = RoundedCornerShape(14.dp), color = MaterialTheme.colorScheme.surface, shadowElevation = 1.dp
+                ) {
+                    Row(Modifier.padding(start = 10.dp, end = 2.dp, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Box(Modifier.width(4.dp).height(36.dp).clip(RoundedCornerShape(2.dp)).background(MaterialTheme.colorScheme.secondary))
+                        Spacer(Modifier.width(8.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(
+                                if (editando != null) "Editar mensagem" else if (alvoBanner.autorUid == identidade.uid) "Tu" else titulo,
+                                style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.secondary
+                            )
+                            Text(alvoBanner.texto, maxLines = 1, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        IconButton(onClick = { if (editando != null) texto = ""; editando = null; respondendo = null }) { Icon(Icons.Filled.Close, "Cancelar") }
+                    }
+                }
+            }
             Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp), verticalAlignment = Alignment.Bottom) {
                 Surface(
                     modifier = Modifier.weight(1f), shape = RoundedCornerShape(26.dp),
@@ -344,13 +439,20 @@ private fun TelaChat(identidade: Identidade, conversa: Conversa, aoVoltar: () ->
                     ),
                     onClick = {
                         val t = texto.trim()
-                        texto = ""
+                        val emEdicao = editando
+                        val emResposta = respondendo
+                        texto = ""; editando = null; respondendo = null
                         escopo.launch {
                             try {
-                                repo.enviarMensagem(conversa.id, t)
+                                if (emEdicao != null) {
+                                    if (t != emEdicao.texto) repo.editarMensagem(emEdicao.id, t)
+                                } else {
+                                    repo.enviarMensagem(conversa.id, t, null, emResposta?.autorUid, emResposta?.texto)
+                                }
                                 erro = null
                             } catch (e: Exception) {
-                                erro = traduzirErro(e); texto = t
+                                erro = if (emEdicao != null) "Não foi possível editar (só até 15 minutos depois de enviar)." else traduzirErro(e)
+                                texto = t
                             }
                         }
                     }
@@ -360,35 +462,99 @@ private fun TelaChat(identidade: Identidade, conversa: Conversa, aoVoltar: () ->
     }
 }
 
+private const val JANELA_EDICAO_MS = 15 * 60_000L
+
 @Composable
-private fun BalaoMensagem(m: MensagemChat, minha: Boolean, primeiraDoGrupo: Boolean) {
+private fun BalaoMensagem(
+    m: MensagemChat, minha: Boolean, primeiraDoGrupo: Boolean,
+    nomeDe: (String) -> String, aoResponder: () -> Unit, aoEditar: () -> Unit
+) {
     val forma = RoundedCornerShape(
         topStart = if (!minha && primeiraDoGrupo) 4.dp else 16.dp,
         topEnd = if (minha && primeiraDoGrupo) 4.dp else 16.dp,
         bottomStart = 16.dp, bottomEnd = 16.dp
     )
-    Row(
-        Modifier.fillMaxWidth().padding(top = if (primeiraDoGrupo) 6.dp else 2.dp),
-        horizontalArrangement = if (minha) Arrangement.End else Arrangement.Start
-    ) {
-        Surface(
-            shape = forma, shadowElevation = 1.dp,
-            color = if (minha) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
-            contentColor = if (minha) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.widthIn(max = 300.dp)
-        ) {
-            Column(Modifier.padding(start = 12.dp, end = 10.dp, top = 7.dp, bottom = 5.dp)) {
-                Text(m.texto, style = MaterialTheme.typography.bodyLarge)
-                Row(Modifier.align(Alignment.End), verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        formatarHora(m.criadoEm), style = MaterialTheme.typography.labelSmall,
-                        color = LocalContentColor.current.copy(alpha = 0.6f)
+    var menu by remember { mutableStateOf(false) }
+    var deslocamento by remember { mutableFloatStateOf(0f) }
+    val anim by animateFloatAsState(deslocamento, label = "deslize")
+    val limite = with(androidx.compose.ui.platform.LocalDensity.current) { 72.dp.toPx() }
+    val area = LocalClipboardManager.current
+    val podeEditar = minha && m.criadoEm > 0 && System.currentTimeMillis() - m.criadoEm < JANELA_EDICAO_MS
+
+    Box(Modifier.fillMaxWidth().padding(top = if (primeiraDoGrupo) 6.dp else 2.dp)) {
+        if (anim > 12f) {
+            Icon(
+                Icons.AutoMirrored.Filled.Reply, null, tint = MaterialTheme.colorScheme.secondary,
+                modifier = Modifier.align(Alignment.CenterStart).padding(start = 8.dp).size(22.dp)
+            )
+        }
+        Row(
+            Modifier.fillMaxWidth().offset { IntOffset(anim.roundToInt(), 0) }
+                .pointerInput(m.id) {
+                    detectHorizontalDragGestures(
+                        onDragEnd = {
+                            if (deslocamento >= limite) aoResponder()
+                            deslocamento = 0f
+                        },
+                        onDragCancel = { deslocamento = 0f },
+                        onHorizontalDrag = { _, d -> deslocamento = (deslocamento + d).coerceIn(0f, limite * 1.3f) }
                     )
-                    if (minha) {
-                        Spacer(Modifier.width(3.dp))
-                        Icon(Icons.Filled.Done, "Enviada", Modifier.size(14.dp), tint = MaterialTheme.colorScheme.secondary)
+                }
+                .pointerInput(m.id) { detectTapGestures(onLongPress = { menu = true }) },
+            horizontalArrangement = if (minha) Arrangement.End else Arrangement.Start
+        ) {
+            Surface(
+                shape = forma, shadowElevation = 1.dp,
+                color = if (minha) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
+                contentColor = if (minha) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.widthIn(max = 300.dp)
+            ) {
+                Column(Modifier.padding(start = 12.dp, end = 10.dp, top = 7.dp, bottom = 5.dp)) {
+                    if (m.respostaAutorUid.isNotBlank()) {
+                        Surface(
+                            shape = RoundedCornerShape(8.dp), color = LocalContentColor.current.copy(alpha = 0.08f),
+                            modifier = Modifier.padding(bottom = 6.dp)
+                        ) {
+                            Row(Modifier.height(androidx.compose.foundation.layout.IntrinsicSize.Min)) {
+                                Box(Modifier.width(4.dp).fillMaxHeight().background(MaterialTheme.colorScheme.secondary))
+                                Column(Modifier.padding(horizontal = 8.dp, vertical = 4.dp)) {
+                                    Text(nomeDe(m.respostaAutorUid), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.secondary)
+                                    Text(m.respostaTexto, maxLines = 2, style = MaterialTheme.typography.bodyMedium, color = LocalContentColor.current.copy(alpha = 0.75f))
+                                }
+                            }
+                        }
+                    }
+                    Text(m.texto, style = MaterialTheme.typography.bodyLarge)
+                    Row(Modifier.align(Alignment.End), verticalAlignment = Alignment.CenterVertically) {
+                        if (m.editadoEm > 0) {
+                            Text("editada  ", style = MaterialTheme.typography.labelSmall, color = LocalContentColor.current.copy(alpha = 0.6f))
+                        }
+                        Text(
+                            formatarHora(m.criadoEm), style = MaterialTheme.typography.labelSmall,
+                            color = LocalContentColor.current.copy(alpha = 0.6f)
+                        )
+                        if (minha) {
+                            Spacer(Modifier.width(3.dp))
+                            Icon(Icons.Filled.Done, "Enviada", Modifier.size(14.dp), tint = MaterialTheme.colorScheme.secondary)
+                        }
                     }
                 }
+            }
+        }
+        DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+            DropdownMenuItem(
+                text = { Text("Responder") }, leadingIcon = { Icon(Icons.AutoMirrored.Filled.Reply, null) },
+                onClick = { menu = false; aoResponder() }
+            )
+            DropdownMenuItem(
+                text = { Text("Copiar") }, leadingIcon = { Icon(Icons.Filled.ContentCopy, null) },
+                onClick = { menu = false; area.setText(AnnotatedString(m.texto)) }
+            )
+            if (podeEditar) {
+                DropdownMenuItem(
+                    text = { Text("Editar (até 15 min)") }, leadingIcon = { Icon(Icons.Filled.Edit, null) },
+                    onClick = { menu = false; aoEditar() }
+                )
             }
         }
     }

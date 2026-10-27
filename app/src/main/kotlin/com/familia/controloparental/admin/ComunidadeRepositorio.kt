@@ -53,15 +53,38 @@ class ComunidadeRepositorio(
         return ref.id
     }
 
-    suspend fun enviarMensagem(conversaId: String, texto: String, audioBase64: String? = null) {
+    suspend fun enviarMensagem(
+        conversaId: String, texto: String, audioBase64: String? = null,
+        respostaAutorUid: String? = null, respostaTexto: String? = null
+    ) {
         validarAnexo(audioBase64)
-        db.collection("mensagens").add(
-            hashMapOf(
-                "conversaId" to conversaId, "autorUid" to uid(), "texto" to texto, "audioBase64" to audioBase64,
-                "anexoBytes" to (audioBase64?.length ?: 0).toLong(),
-                "criadoEm" to FieldValue.serverTimestamp(), "expiresAt" to expira()
-            )
+        val dados = hashMapOf<String, Any?>(
+            "conversaId" to conversaId, "autorUid" to uid(), "texto" to texto, "audioBase64" to audioBase64,
+            "anexoBytes" to (audioBase64?.length ?: 0).toLong(),
+            "criadoEm" to FieldValue.serverTimestamp(), "expiresAt" to expira()
+        )
+        if (!respostaAutorUid.isNullOrBlank()) {
+            dados["respostaAutorUid"] = respostaAutorUid
+            dados["respostaTexto"] = (respostaTexto ?: "").take(140)
+        }
+        db.collection("mensagens").add(dados).await()
+    }
+
+    /** Edita o texto de uma mensagem própria (janela de 15 minutos, validada também nas regras). */
+    suspend fun editarMensagem(mensagemId: String, novoTexto: String) {
+        db.collection("mensagens").document(mensagemId).update(
+            mapOf("texto" to novoTexto, "editadoEm" to FieldValue.serverTimestamp())
         ).await()
+    }
+
+    /**
+     * Presença: visível = marca a hora (ultimoEm). Invisível = só escreve visivel=false, sem hora,
+     * para os amigos não verem estado nem "visto por último". Os pais veem o estado real pelo dispositivo.
+     */
+    suspend fun atualizarPresenca(visivel: Boolean) {
+        val dados: Map<String, Any> = if (visivel) mapOf("visivel" to true, "ultimoEm" to FieldValue.serverTimestamp())
+        else mapOf("visivel" to false)
+        db.collection("presenca").document(uid()).set(dados).await()
     }
 
     suspend fun criarPublicacao(texto: String, imagemBase64: String? = null, audioBase64: String? = null, autorNome: String = ""): String {

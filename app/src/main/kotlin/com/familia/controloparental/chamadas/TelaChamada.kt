@@ -27,6 +27,17 @@ import androidx.compose.material.icons.filled.VideocamOff
 import androidx.compose.material.icons.automirrored.filled.VolumeDown
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material3.*
+import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.unit.IntOffset
+import kotlin.math.roundToInt
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -51,20 +62,25 @@ object GestorChamadas {
     var meuNome by mutableStateOf("")
     /** Preenchido quando o utilizador carrega em "Atender" na notificação. */
     var pedidoAtender by mutableStateOf<String?>(null)
+    /** Como no WhatsApp: a chamada continua em segundo plano e mostra uma barra verde no topo. */
+    var minimizada by mutableStateOf(false)
 
     fun ligar(outroUid: String, outroNome: String, video: Boolean, meuNomeAtual: String) {
         if (ativa != null) return
         meuNome = meuNomeAtual
+        minimizada = false
         ativa = DadosChamada(id = "", chamador = true, outroUid = outroUid, outroNome = outroNome, video = video)
     }
 
     fun atender(c: ChamadaEntrada, meuNomeAtual: String) {
         if (ativa != null) return
         meuNome = meuNomeAtual
+        minimizada = false
         ativa = DadosChamada(id = c.id, chamador = false, outroUid = c.deUid, outroNome = c.deNome, video = c.video)
     }
 
     fun fechar() {
+        minimizada = false
         ativa = null
     }
 }
@@ -116,18 +132,48 @@ fun CamadaChamadas() {
                 Text(e.deNome, color = Color.White, style = MaterialTheme.typography.headlineMedium, textAlign = TextAlign.Center)
                 Text("a chamar…", color = Color.White.copy(alpha = 0.8f))
                 Spacer(Modifier.weight(1f))
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.Bottom) {
                     BotaoRotulado(Icons.Filled.CallEnd, "Recusar", Color(0xFFE53935)) {
                         ignorada = e.id
                         escopo.launch { sinal.recusar(e.id) }
                     }
-                    BotaoRotulado(if (e.video) Icons.Filled.Videocam else Icons.Filled.Call, "Atender", Color(0xFF17A673)) {
-                        GestorChamadas.atender(e, GestorChamadas.meuNome)
-                    }
+                    BotaoAtenderDeslizar(e.video) { GestorChamadas.atender(e, GestorChamadas.meuNome) }
                 }
                 Spacer(Modifier.height(32.dp))
             }
         }
+    }
+}
+
+/** Como no WhatsApp: desliza o botão verde para cima (ou toca) para atender. */
+@Composable
+private fun BotaoAtenderDeslizar(video: Boolean, aoAtender: () -> Unit) {
+    var arrasto by remember { mutableFloatStateOf(0f) }
+    val densidade = androidx.compose.ui.platform.LocalDensity.current
+    val maximo = with(densidade) { 150.dp.toPx() }
+    val anim = rememberInfiniteTransition(label = "seta")
+    val seta by anim.animateFloat(0f, 1f, infiniteRepeatable(tween(900), RepeatMode.Reverse), label = "seta")
+    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.height(230.dp), verticalArrangement = Arrangement.Bottom) {
+        Icon(Icons.Filled.KeyboardArrowUp, null, tint = Color.White.copy(alpha = 0.35f + 0.5f * seta), modifier = Modifier.size(28.dp))
+        Icon(Icons.Filled.KeyboardArrowUp, null, tint = Color.White.copy(alpha = 0.85f - 0.5f * seta), modifier = Modifier.size(28.dp).offset(y = (-14).dp))
+        Spacer(Modifier.height(4.dp))
+        FilledIconButton(
+            onClick = aoAtender,
+            modifier = Modifier.size(72.dp).offset { IntOffset(0, -arrasto.roundToInt()) }
+                .pointerInput(Unit) {
+                    detectVerticalDragGestures(
+                        onDragEnd = {
+                            if (arrasto > maximo * 0.6f) aoAtender()
+                            arrasto = 0f
+                        },
+                        onDragCancel = { arrasto = 0f },
+                        onVerticalDrag = { _, d -> arrasto = (arrasto - d).coerceIn(0f, maximo) }
+                    )
+                },
+            colors = IconButtonDefaults.filledIconButtonColors(containerColor = Color(0xFF17A673), contentColor = Color.White)
+        ) { Icon(if (video) Icons.Filled.Videocam else Icons.Filled.Call, "Atender", Modifier.size(34.dp)) }
+        Spacer(Modifier.height(8.dp))
+        Text("Desliza para atender", color = Color.White.copy(alpha = 0.9f), style = MaterialTheme.typography.labelLarge)
     }
 }
 
@@ -229,15 +275,67 @@ fun TelaChamada(dados: DadosChamada) {
         }
     }
 
-    Box(Modifier.fillMaxSize().background(FundoChamada)) {
+    // Ecrã sempre ligado durante a chamada; em voz, o sensor de proximidade apaga o ecrã junto ao ouvido.
+    val vista = LocalView.current
+    DisposableEffect(Unit) {
+        vista.keepScreenOn = true
+        onDispose { vista.keepScreenOn = false }
+    }
+    DisposableEffect(dados.video, sessao.altifalante) {
+        var trinco: android.os.PowerManager.WakeLock? = null
+        if (!dados.video && !sessao.altifalante) {
+            try {
+                val pm = ctx.getSystemService(android.content.Context.POWER_SERVICE) as android.os.PowerManager
+                if (pm.isWakeLockLevelSupported(android.os.PowerManager.PROXIMITY_SCREEN_OFF_WAKE_LOCK)) {
+                    trinco = pm.newWakeLock(android.os.PowerManager.PROXIMITY_SCREEN_OFF_WAKE_LOCK, "ndjengue:chamada").apply { acquire() }
+                }
+            } catch (_: Exception) {
+            }
+        }
+        onDispose { try { trinco?.release() } catch (_: Exception) {} }
+    }
+
+    BackHandler(enabled = !GestorChamadas.minimizada) { GestorChamadas.minimizada = true }
+
+    if (GestorChamadas.minimizada) {
+        // Barra verde no topo, como no WhatsApp: toca para voltar à chamada.
+        Box(
+            Modifier.fillMaxWidth().background(Color(0xFF17A673)).statusBarsPadding()
+                .clickable { GestorChamadas.minimizada = false }.padding(horizontal = 16.dp, vertical = 8.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                Icon(if (dados.video) Icons.Filled.Videocam else Icons.Filled.Call, null, tint = Color.White, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    "Chamada com ${dados.outroNome}" + if (sessao.ligada && sessao.ligadaDesde > 0) " · " + formatarTempo(sessao.ligadaDesde) else " · " + sessao.estado,
+                    color = Color.White, style = MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f), maxLines = 1
+                )
+                Text("Toca para voltar", color = Color.White.copy(alpha = 0.85f), style = MaterialTheme.typography.labelMedium)
+            }
+        }
+        return
+    }
+
+    var controlos by remember { mutableStateOf(true) }
+    var trocarVistas by remember { mutableStateOf(false) }
+
+    Box(
+        Modifier.fillMaxSize().background(FundoChamada)
+            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { if (dados.video) controlos = !controlos }
+    ) {
         val comVideoRemoto = dados.video && sessao.videoRemoto != null
         if (dados.video) {
-            VistaVideo(sessao.videoRemoto, sessao.egl, espelhar = false, Modifier.fillMaxSize())
+            VistaVideo(if (trocarVistas) sessao.videoLocal else sessao.videoRemoto, sessao.egl, espelhar = trocarVistas, Modifier.fillMaxSize())
             Box(
                 Modifier.align(Alignment.TopEnd).systemBarsPadding().padding(top = 72.dp, end = 12.dp)
                     .size(width = 108.dp, height = 148.dp).clip(RoundedCornerShape(14.dp))
-            ) { VistaVideo(sessao.videoLocal, sessao.egl, espelhar = true, Modifier.fillMaxSize(), sobrepor = true) }
+                    .clickable { trocarVistas = !trocarVistas }
+            ) { VistaVideo(if (trocarVistas) sessao.videoRemoto else sessao.videoLocal, sessao.egl, espelhar = !trocarVistas, Modifier.fillMaxSize(), sobrepor = true) }
         }
+        IconButton(
+            onClick = { GestorChamadas.minimizada = true },
+            modifier = Modifier.align(Alignment.TopStart).systemBarsPadding().padding(start = 4.dp, top = 4.dp)
+        ) { Icon(Icons.Filled.KeyboardArrowDown, "Minimizar", tint = Color.White, modifier = Modifier.size(32.dp)) }
         Column(
             Modifier.align(Alignment.TopCenter).fillMaxWidth().systemBarsPadding().padding(top = 12.dp)
                 .then(if (comVideoRemoto) Modifier.background(Color.Black.copy(alpha = 0.25f)).padding(vertical = 8.dp) else Modifier),
@@ -260,8 +358,9 @@ fun TelaChamada(dados: DadosChamada) {
                 color = Color.White.copy(alpha = 0.55f), style = MaterialTheme.typography.labelSmall
             )
         }
+        AnimatedVisibility(visible = controlos || !dados.video, modifier = Modifier.align(Alignment.BottomCenter)) {
         Row(
-            Modifier.align(Alignment.BottomCenter).systemBarsPadding().padding(bottom = 28.dp)
+            Modifier.systemBarsPadding().padding(bottom = 28.dp)
                 .clip(RoundedCornerShape(40.dp)).background(Color.Black.copy(alpha = 0.35f)).padding(horizontal = 18.dp, vertical = 14.dp),
             horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically
         ) {
@@ -275,6 +374,7 @@ fun TelaChamada(dados: DadosChamada) {
                 onClick = { sessao.terminar(apagar = true) }, modifier = Modifier.size(58.dp),
                 colors = IconButtonDefaults.filledIconButtonColors(containerColor = Color(0xFFE53935), contentColor = Color.White)
             ) { Icon(Icons.Filled.CallEnd, "Desligar", Modifier.size(28.dp)) }
+        }
         }
     }
 }

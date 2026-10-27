@@ -215,7 +215,25 @@ service cloud.firestore {
       allow list: if eParticipante(resource.data.conversaId) || eSuperAdmin();
       allow create: if eParticipante(request.resource.data.conversaId) &&
         request.resource.data.autorUid == request.auth.uid && expiracaoValida();
-      allow update: if adminSoExpiracao();
+      // O autor pode editar o texto durante 15 minutos (editadoEm = hora do servidor).
+      allow update: if adminSoExpiracao() || (
+        autenticado() && resource.data.autorUid == request.auth.uid && aindaValido() &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['texto', 'editadoEm']) &&
+        request.resource.data.editadoEm == request.time &&
+        request.time < resource.data.criadoEm + duration.value(15, 'm') &&
+        request.resource.data.texto is string && request.resource.data.texto.size() <= 1000);
+      allow delete: if eSuperAdmin();
+    }
+
+    // Presença: cada conta escreve a sua. Invisível = sem hora (os amigos não veem "visto por último").
+    match /presenca/{uid} {
+      allow read: if autenticado();
+      allow create, update: if autenticado() && request.auth.uid == uid &&
+        request.resource.data.keys().hasOnly(['visivel', 'ultimoEm']) &&
+        request.resource.data.visivel is bool &&
+        (request.resource.data.visivel == false
+          ? !('ultimoEm' in request.resource.data)
+          : request.resource.data.ultimoEm == request.time);
       allow delete: if eSuperAdmin();
     }
 

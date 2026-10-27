@@ -32,7 +32,12 @@ fun TelaComunidadePai(c: ContextoPai, aoVoltar: () -> Unit) {
     val contactos = c.dispositivos
         .filter { it.emparelhado && it.uidAutenticacao.isNotBlank() }
         .map { Contacto(it.uidAutenticacao, it.nomeExibicao) }
-    TelaComunidade(Identidade(utilizador.uid, nome, contactos, podeAmizade = true), dias, aoVoltar)
+    val agora by com.familia.controloparental.pai.rememberAgora()
+    // Estado REAL da criança (vem do dispositivo), mesmo que ela escolha "aparecer offline" para os amigos.
+    val real = c.dispositivos
+        .filter { it.emparelhado && it.uidAutenticacao.isNotBlank() }
+        .associate { it.uidAutenticacao to (if (it.estaOnline(agora)) "online" else "visto ${com.familia.controloparental.comum.tempoDecorrido(it.ultimoSinal, agora)}") }
+    TelaComunidade(Identidade(utilizador.uid, nome, contactos, podeAmizade = true, estadoReal = real), dias, aoVoltar)
 }
 
 @Composable

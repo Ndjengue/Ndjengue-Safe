@@ -6,6 +6,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.DeleteForever
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -323,6 +324,56 @@ private fun AbaHistorico(repo: RetencaoRepositorio, limpezas: List<ExecucaoLimpe
                     aExecutar = false
                 }
             }) { Text(if (aExecutar) "A limpar…" else "Executar limpeza agora") }
+        }
+
+        var confirmarTotal by remember { mutableStateOf(false) }
+        var progressoTotal by remember { mutableStateOf<String?>(null) }
+        var resultadoTotal by remember { mutableStateOf<String?>(null) }
+        CartaoSecao("Limpar base de dados", icone = androidx.compose.material.icons.Icons.Filled.DeleteForever) {
+            Text(
+                "Apaga já TODAS as mensagens, publicações, comentários, reações, registos de chamadas e presença, " +
+                    "mesmo que ainda não tenham expirado, para libertar espaço e deixar entrar registos novos. " +
+                    "Contas, famílias, dispositivos, regras e as amizades mantêm-se. Não pode ser desfeito.",
+                style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            progressoTotal?.let { Text(it, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 8.dp)) }
+            resultadoTotal?.let { Text(it, color = VerdeEsmeralda, modifier = Modifier.padding(top = 8.dp)) }
+            Spacer(Modifier.height(10.dp))
+            Button(
+                enabled = !aExecutar, modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(containerColor = CorErro),
+                onClick = { confirmarTotal = true }
+            ) { Text("Limpar base de dados…") }
+        }
+        if (confirmarTotal) {
+            var escrito by remember { mutableStateOf("") }
+            AlertDialog(
+                onDismissRequest = { confirmarTotal = false },
+                title = { Text("Limpar toda a base de dados?") },
+                text = {
+                    Column {
+                        Text("Vai apagar todo o conteúdo temporário das duas apps que usam esta base (pais e crianças). Escreve LIMPAR para confirmar.")
+                        Spacer(Modifier.height(10.dp))
+                        OutlinedTextField(value = escrito, onValueChange = { escrito = it }, singleLine = true, label = { Text("LIMPAR") })
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        enabled = escrito.trim() == "LIMPAR", colors = ButtonDefaults.buttonColors(containerColor = CorErro),
+                        onClick = {
+                            confirmarTotal = false; aExecutar = true; erro = null; resultadoTotal = null
+                            escopo.launch {
+                                try {
+                                    val r = repo.limparBaseDeDados { progressoTotal = it }
+                                    resultadoTotal = "Concluído: " + r.entries.joinToString(" · ") { "${it.key} ${it.value}" }
+                                } catch (e: Exception) { erro = traduzirErro(e) }
+                                progressoTotal = null; aExecutar = false
+                            }
+                        }
+                    ) { Text("Apagar tudo") }
+                },
+                dismissButton = { TextButton(onClick = { confirmarTotal = false }) { Text("Cancelar") } }
+            )
         }
 
         CartaoSecao("Execuções") {

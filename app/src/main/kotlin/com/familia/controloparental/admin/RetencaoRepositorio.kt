@@ -304,4 +304,52 @@ class RetencaoRepositorio(
             chamadas = contagem["chamadas"] ?: 0, falhas = falhas, estado = estado
         )
     }
+
+    /**
+     * "Limpar base de dados": apaga TODO o conteúdo temporário (mensagens, publicações, comentários,
+     * reações, registo de chamadas, sinais de chamada e presença), expirado ou não, para libertar espaço.
+     * Mantém contas, famílias, dispositivos, regras e conversas (as amizades não se perdem).
+     * Devolve o total de documentos apagados por coleção.
+     */
+    suspend fun limparBaseDeDados(progresso: (String) -> Unit = {}): Map<String, Long> {
+        if (!ehSuperAdmin()) throw IllegalStateException("Só o super administrador pode limpar a base de dados.")
+        val ref = db.collection("limpezas").document(UUID.randomUUID().toString())
+        ref.set(mapOf("inicio" to FieldValue.serverTimestamp(), "estado" to "EM_CURSO", "falhas" to 0, "tipo" to "TOTAL")).await()
+        val total = LinkedHashMap<String, Long>()
+        var falhas = 0L
+        for (colecao in listOf("comentarios", "reacoes", "publicacoes", "mensagens", "chamadas", "sinais", "presenca")) {
+            progresso("A limpar $colecao…")
+            var n = 0L
+            while (true) {
+                val docs = try {
+                    db.collection(colecao).limit(400).get().await().documents
+                } catch (_: Exception) {
+                    falhas++; break
+                }
+                if (docs.isEmpty()) break
+                var ok = false
+                repeat(3) {
+                    if (!ok) try {
+                        val lote = db.batch()
+                        docs.forEach { lote.delete(it.reference) }
+                        lote.commit().await()
+                        ok = true
+                    } catch (_: Exception) {
+                    }
+                }
+                if (!ok) { falhas++; break }
+                n += docs.size
+                progresso("A limpar $colecao… $n")
+            }
+            total[colecao] = n
+        }
+        ref.update(
+            mapOf(
+                "fim" to FieldValue.serverTimestamp(), "estado" to if (falhas == 0L) "CONCLUIDA" else "CONCLUIDA_COM_ERROS",
+                "falhas" to falhas, "mensagens" to (total["mensagens"] ?: 0), "publicacoes" to (total["publicacoes"] ?: 0),
+                "comentarios" to (total["comentarios"] ?: 0), "reacoes" to (total["reacoes"] ?: 0), "chamadas" to (total["chamadas"] ?: 0)
+            )
+        ).await()
+        return total
+    }
 }

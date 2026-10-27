@@ -59,10 +59,28 @@ class LeituraComunidade(
                 val agora = System.currentTimeMillis()
                 trySend(
                     snap?.documents?.map { d ->
-                        MensagemChat(d.id, d.getString("autorUid") ?: "", d.getString("texto") ?: "", ms(d, "criadoEm"), ms(d, "expiresAt"))
+                        MensagemChat(
+                            d.id, d.getString("autorUid") ?: "", d.getString("texto") ?: "", ms(d, "criadoEm"), ms(d, "expiresAt"),
+                            editadoEm = ms(d, "editadoEm"),
+                            respostaAutorUid = d.getString("respostaAutorUid") ?: "", respostaTexto = d.getString("respostaTexto") ?: ""
+                        )
                     }?.filter { it.expiresAt > agora }?.sortedBy { it.criadoEm } ?: emptyList()
                 )
             }
+        awaitClose { reg.remove() }
+    }
+
+    fun observarPresenca(uid: String): Flow<Presenca?> = callbackFlow {
+        if (uid.isBlank()) {
+            trySend(null); close(); return@callbackFlow
+        }
+        val reg = db.collection("presenca").document(uid).addSnapshotListener { d, erro ->
+            if (erro != null) {
+                trySend(null)
+                return@addSnapshotListener
+            }
+            trySend(if (d == null || !d.exists()) null else Presenca(d.getBoolean("visivel") ?: true, ms(d, "ultimoEm")))
+        }
         awaitClose { reg.remove() }
     }
 
@@ -158,6 +176,6 @@ class LeituraComunidade(
         val dono = fam.getString("donoUid") ?: throw IllegalStateException("Família não encontrada.")
         val disp = db.collection("familias").document(fid).collection("dispositivos").document(did).get().await()
         val nome = ((disp.get("crianca") as? Map<*, *>)?.get("nome") as? String).orEmpty().ifBlank { "Criança" }
-        return Identidade(uid, nome, listOf(Contacto(dono, "Pai/Mãe")), podeAmizade = false)
+        return Identidade(uid, nome, listOf(Contacto(dono, "Pai/Mãe")), podeAmizade = false, ehCrianca = true)
     }
 }
