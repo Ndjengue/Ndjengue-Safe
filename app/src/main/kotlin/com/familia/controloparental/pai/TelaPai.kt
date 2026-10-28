@@ -47,10 +47,10 @@ class ContextoPai(
 
 /** Relógio que "bate" a cada 15 s, para que o estado online/offline se atualize sozinho. */
 @Composable
-fun rememberAgora(): State<Long> = produceState(System.currentTimeMillis()) {
+fun rememberAgora(): State<Long> = produceState(com.familia.controloparental.data.RelogioServidor.agora()) {
     while (true) {
         delay(15_000)
-        value = System.currentTimeMillis()
+        value = com.familia.controloparental.data.RelogioServidor.agora()
     }
 }
 

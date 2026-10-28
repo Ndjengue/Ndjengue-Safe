@@ -92,6 +92,7 @@ class ServicoMonitorPai : Service() {
     private suspend fun vigiar() {
         EscutaChamadas.iniciar(this)
         EscutaMensagens.iniciar(this)
+        PulsoPresenca.iniciar(this, "monitor")
         val uid = FirebaseAuth.getInstance().currentUser?.uid
         if (uid == null) {
             stopSelf()
@@ -150,6 +151,7 @@ class ServicoMonitorPai : Service() {
     override fun onDestroy() {
         EscutaChamadas.parar()
         EscutaMensagens.parar()
+        PulsoPresenca.parar("monitor")
         escopo.cancel()
         super.onDestroy()
     }

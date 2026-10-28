@@ -37,6 +37,8 @@ import androidx.compose.material.icons.automirrored.filled.Reply
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.EmojiEmotions
+import androidx.compose.material.icons.filled.Keyboard
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.pointerInput
@@ -68,17 +70,10 @@ fun TelaComunidade(identidade: Identidade, diasRetencao: Int?, aoVoltar: () -> U
     // Presença: "aparecer offline" é só da criança; guardado neste telemóvel e enviado em pulsos de 30 s.
     val ctxP = LocalContext.current
     val prefsP = remember { ctxP.getSharedPreferences("presenca", android.content.Context.MODE_PRIVATE) }
-    var aparecerOffline by remember { mutableStateOf(prefsP.getBoolean("offline", false) && identidade.ehCrianca) }
-    LaunchedEffect(aparecerOffline) {
-        val repoP = ComunidadeRepositorio()
-        while (true) {
-            try { repoP.atualizarPresenca(!aparecerOffline) } catch (_: Exception) {}
-            delay(30_000)
-        }
-    }
+    var aparecerOffline by remember { mutableStateOf(prefsP.getBoolean("offline", false)) }
     val alterarOffline: (Boolean) -> Unit = { v ->
         aparecerOffline = v
-        prefsP.edit().putBoolean("offline", v).apply()
+        com.familia.controloparental.servico.PulsoPresenca.definirVisivel(ctxP, !v)
     }
 
     val c = conversaAberta
@@ -101,7 +96,7 @@ fun TelaComunidade(identidade: Identidade, diasRetencao: Int?, aoVoltar: () -> U
                     Tab(selected = aba == i, onClick = { aba = i }, text = { Text(t) })
                 }
             }
-            if (identidade.ehCrianca) {
+            run {
                 Row(
                     Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically
@@ -109,7 +104,8 @@ fun TelaComunidade(identidade: Identidade, diasRetencao: Int?, aoVoltar: () -> U
                     Column(Modifier.weight(1f)) {
                         Text("Aparecer offline", style = MaterialTheme.typography.titleSmall)
                         Text(
-                            "Os teus amigos deixam de ver quando estás online. Os teus pais continuam a ver o estado real.",
+                            if (identidade.ehCrianca) "Os teus amigos deixam de ver quando estás online. Os teus pais continuam a ver o estado real."
+                            else "A criança e os outros encarregados passam a ver-te offline. As chamadas e mensagens continuam a funcionar.",
                             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
@@ -350,6 +346,7 @@ private fun TelaChat(identidade: Identidade, conversa: Conversa, aparecerOffline
     var respondendo by remember { mutableStateOf<MensagemChat?>(null) }
     var editando by remember { mutableStateOf<MensagemChat?>(null) }
     var menuTopo by remember { mutableStateOf(false) }
+    var mostrarEmojis by remember { mutableStateOf(false) }
     val ctxChat = LocalContext.current
     val escolherImagem = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
         if (uri != null) {
@@ -361,12 +358,12 @@ private fun TelaChat(identidade: Identidade, conversa: Conversa, aparecerOffline
     val uidOutro = conversa.participantes.firstOrNull { it != identidade.uid } ?: ""
     val titulo = identidade.contactos.firstOrNull { it.uid == uidOutro }?.nome ?: conversa.nomes[uidOutro] ?: "Conversa"
     val presenca by remember(uidOutro) { leitura.observarPresenca(uidOutro) }.collectAsState(initial = null)
-    val agoraP by produceState(System.currentTimeMillis()) { while (true) { delay(15_000); value = System.currentTimeMillis() } }
+    val agoraP by produceState(com.familia.controloparental.data.RelogioServidor.agora()) { while (true) { delay(15_000); value = com.familia.controloparental.data.RelogioServidor.agora() } }
     val subtitulo: String = run {
         val real = identidade.estadoReal[uidOutro]
         val p = presenca
         if (real != null) real + if (p != null && !p.visivel) " · offline para os amigos" else ""
-        else if (p == null || !p.visivel || p.ultimoEm <= 0) "chamadas cifradas · não gravadas"
+        else if (p == null || !p.visivel || p.ultimoEm <= 0) "offline"
         else if (agoraP - p.ultimoEm < 75_000) "online"
         else "visto ${tempoDecorrido(p.ultimoEm, agoraP)}"
     }
@@ -405,14 +402,12 @@ private fun TelaChat(identidade: Identidade, conversa: Conversa, aparecerOffline
                     IconButton(onClick = { com.familia.controloparental.chamadas.GestorChamadas.ligar(uidOutro, titulo, false, identidade.nome) }) {
                         Icon(Icons.Filled.Call, "Chamada de voz")
                     }
-                    if (identidade.ehCrianca) {
-                        IconButton(onClick = { menuTopo = true }) { Icon(Icons.Filled.MoreVert, "Mais") }
-                        DropdownMenu(expanded = menuTopo, onDismissRequest = { menuTopo = false }) {
-                            DropdownMenuItem(
-                                text = { Text(if (aparecerOffline) "Voltar a aparecer online" else "Aparecer offline") },
-                                onClick = { menuTopo = false; aoAlterarOffline(!aparecerOffline) }
-                            )
-                        }
+                    IconButton(onClick = { menuTopo = true }) { Icon(Icons.Filled.MoreVert, "Mais") }
+                    DropdownMenu(expanded = menuTopo, onDismissRequest = { menuTopo = false }) {
+                        DropdownMenuItem(
+                            text = { Text(if (aparecerOffline) "Voltar a aparecer online" else "Aparecer offline") },
+                            onClick = { menuTopo = false; aoAlterarOffline(!aparecerOffline) }
+                        )
                     }
                 }
             )
@@ -510,6 +505,14 @@ private fun TelaChat(identidade: Identidade, conversa: Conversa, aparecerOffline
                     TextField(
                         value = texto, onValueChange = { texto = it.take(1000) },
                         placeholder = { Text("Mensagem") }, maxLines = 5,
+                        leadingIcon = {
+                            IconButton(onClick = { mostrarEmojis = !mostrarEmojis }) {
+                                Icon(
+                                    if (mostrarEmojis) Icons.Filled.Keyboard else Icons.Filled.EmojiEmotions, "Emojis",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        },
                         trailingIcon = {
                             IconButton(onClick = { escolherImagem.launch("image/*") }) {
                                 Icon(Icons.Filled.AttachFile, "Anexar", tint = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -551,6 +554,7 @@ private fun TelaChat(identidade: Identidade, conversa: Conversa, aparecerOffline
                     }
                 ) { Icon(Icons.AutoMirrored.Filled.Send, "Enviar") }
             }
+            if (mostrarEmojis) PainelEmojis { e -> texto = (texto + e).take(1000) }
         }
     }
 }

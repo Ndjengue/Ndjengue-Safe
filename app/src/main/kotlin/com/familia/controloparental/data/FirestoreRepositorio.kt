@@ -197,6 +197,11 @@ class FirestoreRepositorio(
         dispositivoRef(fid, did).update("crianca", mapaDePerfil(perfil)).await()
     }
 
+    /** A criança muda a sua própria foto (só o campo da foto, sem mexer no resto do perfil). */
+    suspend fun atualizarFotoCrianca(fid: String, did: String, fotoBase64: String?) {
+        dispositivoRef(fid, did).update("crianca.fotoBase64", fotoBase64).await()
+    }
+
     suspend fun enviarHeartbeat(
         fid: String, did: String, bateria: Int, aCarregar: Boolean, rede: String, protecao: EstadoProtecao
     ) {
@@ -564,6 +569,7 @@ class FirestoreRepositorio(
     private fun DocumentSnapshot.paraDispositivo(): Dispositivo {
         val ultimo = getTimestamp("ultimoSinal", DocumentSnapshot.ServerTimestampBehavior.ESTIMATE)
             ?.toDate()?.time ?: 0L
+        RelogioServidor.amostra("disp:$id", ultimo, !metadata.isFromCache && !metadata.hasPendingWrites())
         val loc = if (get("localizacaoAtual") != null) {
             LocalizacaoPonto(
                 latitude = getDouble("localizacaoAtual.latitude") ?: 0.0,

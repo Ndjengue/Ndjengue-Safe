@@ -194,7 +194,7 @@ fun TelaFilhoInicio(aoDesemparelhar: () -> Unit, aoAbrirComunidade: () -> Unit =
                         Modifier.fundoDeMarca().padding(20.dp).fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        AvatarCrianca(dispositivo?.crianca?.fotoBase64, nome.ifBlank { "Eu" }, 60.dp)
+                        AvatarEditavel(dispositivo?.crianca?.fotoBase64, nome.ifBlank { "Eu" }, fid, did, 64.dp)
                         Spacer(Modifier.width(16.dp))
                         Column(Modifier.weight(1f)) {
                             Text(

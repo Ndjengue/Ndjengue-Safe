@@ -116,7 +116,7 @@ fun CamadaChamadas() {
             onDispose { toque.parar() }
         }
         LaunchedEffect(e.id) {
-            delay((e.tocaAte - System.currentTimeMillis()).coerceAtLeast(0L))
+            delay((e.tocaAte - com.familia.controloparental.data.RelogioServidor.agora()).coerceAtLeast(0L))
             ignorada = e.id
         }
         Box(Modifier.fillMaxSize().background(FundoChamada)) {

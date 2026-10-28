@@ -14,6 +14,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.withTimeoutOrNull
+import com.familia.controloparental.data.lerRobusto
 import org.webrtc.AudioTrack
 import org.webrtc.Camera2Enumerator
 import org.webrtc.CameraVideoCapturer
@@ -107,7 +109,7 @@ class SessaoChamada(
                 preparar()
                 if (dados.chamador) chamar() else atender()
             } catch (e: Exception) {
-                estado = "Erro: ${e.message ?: "falha na chamada"}"
+                estado = if (e is IllegalStateException && !e.message.isNullOrBlank()) e.message!! else com.familia.controloparental.comum.traduzirErro(e)
                 delay(1500)
                 terminar(apagar = true)
             }
@@ -230,17 +232,43 @@ class SessaoChamada(
         mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveVideo", if (dados.video) "true" else "false"))
     }
 
+    private fun temRede(): Boolean = try {
+        val cm = contexto.getSystemService(Context.CONNECTIVITY_SERVICE) as android.net.ConnectivityManager
+        cm.getNetworkCapabilities(cm.activeNetwork)?.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
+    } catch (_: Exception) { true }
+
+    private suspend fun semLigacao() {
+        toqueSaida.parar()
+        estado = "Sem ligação à internet"
+        delay(1800)
+        terminar(apagar = true)
+    }
+
     private suspend fun chamar() {
+        if (!temRede()) { semLigacao(); return }
         estado = "A chamar…"
         toqueSaida.iniciar()
-        callId = sinal.criar(dados.outroUid, meuNome, dados.video)
+        val id = withTimeoutOrNull(10_000L) { sinal.criar(dados.outroUid, meuNome, dados.video) }
+        if (id == null) { semLigacao(); return }
+        callId = id
         val oferta = criarSdp(true)
         definirLocal(oferta)
-        sinal.publicarOferta(callId, oferta.description)
+        if (withTimeoutOrNull(10_000L) { sinal.publicarOferta(callId, oferta.description); true } == null) { semLigacao(); return }
         observar()
+        // Como no WhatsApp: toca durante TOCA_MS; sem resposta, desliga. Se este telemóvel perder a rede, desliga também.
         tempoLimite = escopo.launch {
-            delay(Sinalizacao.TOCA_MS + 10_000L)
+            val fim = System.currentTimeMillis() + Sinalizacao.TOCA_MS + 2_000L
+            var semRedeDesde = 0L
+            while (!ligada && System.currentTimeMillis() < fim) {
+                delay(2_000)
+                if (temRede()) semRedeDesde = 0L
+                else {
+                    if (semRedeDesde == 0L) semRedeDesde = System.currentTimeMillis()
+                    if (System.currentTimeMillis() - semRedeDesde > 10_000L) { semLigacao(); return@launch }
+                }
+            }
             if (!ligada) {
+                toqueSaida.parar()
                 estado = "Sem resposta"
                 delay(1200)
                 terminar(apagar = true)
@@ -250,7 +278,8 @@ class SessaoChamada(
 
     private suspend fun atender() {
         estado = "A ligar…"
-        val doc = sinal.ref(callId).get().await()
+        val doc = withTimeoutOrNull(12_000L) { sinal.ref(callId).lerRobusto(3) }
+            ?: throw IllegalStateException("Sem ligação à internet.")
         val sdp = doc.getString("oferta") ?: throw IllegalStateException("A chamada já terminou.")
         definirRemota(SessionDescription(SessionDescription.Type.OFFER, sdp))
         remotaDefinida = true

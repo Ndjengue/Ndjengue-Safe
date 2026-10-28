@@ -44,7 +44,7 @@ object EscutaChamadas {
             .collection("sinais").whereEqualTo("para", uid)
             .addSnapshotListener { snap, erro ->
                 if (erro != null || snap == null) return@addSnapshotListener
-                val agora = System.currentTimeMillis()
+                val agora = com.familia.controloparental.data.RelogioServidor.agora()
                 val c = snap.documents.firstOrNull {
                     it.getString("estado") == Sinalizacao.ESTADO_A_TOCAR && (it.getLong("tocaAte") ?: 0L) > agora
                 }
@@ -87,7 +87,7 @@ object EscutaChamadas {
                 .setOngoing(true)
                 .setAutoCancel(true)
                 .setOnlyAlertOnce(false)
-                .setTimeoutAfter((tocaAte - System.currentTimeMillis()).coerceIn(1_000L, 60_000L))
+                .setTimeoutAfter((tocaAte - com.familia.controloparental.data.RelogioServidor.agora()).coerceIn(1_000L, 60_000L))
                 .setContentIntent(piAbrir)
                 .setFullScreenIntent(piAbrir, true)
                 .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Recusar", piRecusar)

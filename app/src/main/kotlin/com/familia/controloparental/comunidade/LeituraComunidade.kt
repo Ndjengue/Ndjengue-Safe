@@ -9,6 +9,7 @@ import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.tasks.await
+import com.familia.controloparental.data.lerRobusto
 
 /**
  * Leituras da comunidade. As queries não usam orderBy com filtros (evita índices compostos);
@@ -89,7 +90,9 @@ class LeituraComunidade(
                 trySend(null)
                 return@addSnapshotListener
             }
-            trySend(if (d == null || !d.exists()) null else Presenca(d.getBoolean("visivel") ?: true, ms(d, "ultimoEm")))
+            val hora = if (d == null || !d.exists()) 0L else ms(d, "ultimoEm")
+            if (d != null) com.familia.controloparental.data.RelogioServidor.amostra("pres:$uid", hora, !d.metadata.isFromCache && !d.metadata.hasPendingWrites())
+            trySend(if (d == null || !d.exists()) null else Presenca(d.getBoolean("visivel") ?: true, hora))
         }
         awaitClose { reg.remove() }
     }
@@ -180,12 +183,24 @@ class LeituraComunidade(
     }
 
     /** Lado da criança: o único contacto é o encarregado da família. */
-    suspend fun identidadeCrianca(fid: String, did: String): Identidade {
+    suspend fun identidadeCrianca(fid: String, did: String, cache: com.familia.controloparental.data.CacheLocal? = null): Identidade {
         val uid = auth.currentUser?.uid ?: throw IllegalStateException("Sessão inválida.")
-        val fam = db.collection("familias").document(fid).get().await()
-        val dono = fam.getString("donoUid") ?: throw IllegalStateException("Família não encontrada.")
-        val disp = db.collection("familias").document(fid).collection("dispositivos").document(did).get().await()
-        val nome = ((disp.get("crianca") as? Map<*, *>)?.get("nome") as? String).orEmpty().ifBlank { "Criança" }
-        return Identidade(uid, nome, listOf(Contacto(dono, "Pai/Mãe")), podeAmizade = false, ehCrianca = true)
+        // Sem ligação (ou ainda a ligar): usa o que ficou guardado da última vez.
+        val donoGuardado = cache?.lerTexto("chat_dono_uid")
+        val nomeGuardado = cache?.lerTexto("chat_nome")
+        try {
+            val fam = db.collection("familias").document(fid).lerRobusto()
+            val dono = fam.getString("donoUid") ?: throw IllegalStateException("Família não encontrada.")
+            val disp = db.collection("familias").document(fid).collection("dispositivos").document(did).lerRobusto()
+            val nome = ((disp.get("crianca") as? Map<*, *>)?.get("nome") as? String).orEmpty().ifBlank { "Criança" }
+            cache?.guardarTexto("chat_dono_uid", dono)
+            cache?.guardarTexto("chat_nome", nome)
+            return Identidade(uid, nome, listOf(Contacto(dono, "Pai/Mãe")), podeAmizade = false, ehCrianca = true)
+        } catch (e: Exception) {
+            if (!donoGuardado.isNullOrBlank()) {
+                return Identidade(uid, nomeGuardado.orEmpty().ifBlank { "Criança" }, listOf(Contacto(donoGuardado, "Pai/Mãe")), podeAmizade = false, ehCrianca = true)
+            }
+            throw e
+        }
     }
 }

@@ -153,6 +153,18 @@ fun TelaDefinicoes(c: ContextoPai, aoSair: () -> Unit, aoAbrirSobre: () -> Unit,
                 }
             }
 
+            CartaoSecao("Privacidade") {
+                var offlineChat by remember { mutableStateOf(!com.familia.controloparental.servico.PulsoPresenca.visivel(ctx)) }
+                LinhaInterruptor(
+                    Icons.Filled.VisibilityOff, "Aparecer offline no chat",
+                    "A criança e os outros encarregados veem-te offline. Mensagens e chamadas continuam a funcionar.",
+                    offlineChat, { v ->
+                        offlineChat = v
+                        com.familia.controloparental.servico.PulsoPresenca.definirVisivel(ctx, !v)
+                    }
+                )
+            }
+
             CartaoSecao("Comunidade") {
                 LinhaDefinicao(Icons.Filled.Forum, "Conversas e publicações", "Mensagens com a família e partilhas, com eliminação automática", aoAbrirComunidade)
             }

@@ -59,6 +59,17 @@
             </intent-filter>
         </activity>
 
+        <!-- Fotos tiradas com a câmara (ficheiro temporário partilhado só com a câmara) -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/caminhos_ficheiros" />
+        </provider>
+
         <!-- SOS da criança no telemóvel dos pais (por cima do bloqueio) -->
         <activity
             android:name=".servico.SosActivity"

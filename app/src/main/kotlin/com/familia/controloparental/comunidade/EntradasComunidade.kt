@@ -13,9 +13,10 @@ import com.familia.controloparental.pai.ContextoPai
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.tasks.await
+import com.familia.controloparental.data.lerRobusto
 
 private suspend fun diasAtivos(): Int? = try {
-    FirebaseFirestore.getInstance().collection("config").document("retencao").get().await().getLong("dias")?.toInt()
+    FirebaseFirestore.getInstance().collection("config").document("retencao").lerRobusto(2).getLong("dias")?.toInt()
 } catch (_: Exception) {
     null
 }
@@ -55,9 +56,9 @@ fun TelaComunidadeFilho(aoVoltar: () -> Unit) {
     LaunchedEffect(Unit) {
         try {
             val cache = CacheLocal(ctx)
-            identidade = leitura.identidadeCrianca(cache.lerFamiliaId().orEmpty(), cache.lerDispositivoId().orEmpty())
+            identidade = leitura.identidadeCrianca(cache.lerFamiliaId().orEmpty(), cache.lerDispositivoId().orEmpty(), cache)
         } catch (e: Exception) {
-            erro = e.message ?: "Erro ao abrir."
+            erro = com.familia.controloparental.comum.traduzirErro(e)
         }
     }
     val i = identidade

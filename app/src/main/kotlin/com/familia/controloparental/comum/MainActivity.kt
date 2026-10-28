@@ -50,10 +50,12 @@ class MainActivity : ComponentActivity() {
         com.familia.controloparental.servico.EscutaChamadas.appVisivel = true
         androidx.core.app.NotificationManagerCompat.from(this).cancel(com.familia.controloparental.servico.EscutaChamadas.ID_NOTIFICACAO)
         com.familia.controloparental.servico.EscutaMensagens.limparNotificacoes(this)
+        com.familia.controloparental.servico.PulsoPresenca.iniciar(this, "ecra")
     }
 
     override fun onStop() {
         com.familia.controloparental.servico.EscutaChamadas.appVisivel = false
+        com.familia.controloparental.servico.PulsoPresenca.parar("ecra")
         super.onStop()
     }
 

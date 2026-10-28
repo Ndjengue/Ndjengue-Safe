@@ -45,7 +45,7 @@ class Sinalizacao(
     /** O chamador cria o pedido (ainda sem oferta SDP). */
     suspend fun criar(paraUid: String, meuNome: String, video: Boolean): String {
         val id = UUID.randomUUID().toString()
-        val agora = System.currentTimeMillis()
+        val agora = com.familia.controloparental.data.RelogioServidor.agora()
         ref(id).set(
             hashMapOf(
                 "de" to uid(), "para" to paraUid, "deNome" to meuNome, "video" to video,
@@ -103,7 +103,7 @@ class Sinalizacao(
                     trySend(null)
                     return@addSnapshotListener
                 }
-                val agora = System.currentTimeMillis()
+                val agora = com.familia.controloparental.data.RelogioServidor.agora()
                 val c = snap?.documents?.firstOrNull { (it.getString("estado") == ESTADO_A_TOCAR) && (it.getLong("tocaAte") ?: 0L) > agora }
                 trySend(
                     c?.let {
