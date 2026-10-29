@@ -6,6 +6,11 @@ import android.os.Handler
 import android.os.Looper
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
+import android.view.accessibility.AccessibilityWindowInfo
+import android.app.usage.UsageEvents
+import android.app.usage.UsageStatsManager
+import android.content.Context
+import android.os.PowerManager
 import com.familia.controloparental.comum.*
 import com.familia.controloparental.data.CacheLocal
 import kotlinx.coroutines.*
@@ -112,23 +117,25 @@ class ServicoAcessibilidade : AccessibilityService() {
                 delay(3_000)
             }
         }
-        // Reavalia periodicamente (e não depende só dos eventos, que alguns Xiaomi/Redmi perdem):
-        // lê a janela ativa, mostra/oculta o bloqueio e apanha o fim de horários.
+        // Reavalia a cada 0,5 s (3 s com o ecrã apagado). Não depende dos eventos, que alguns telemóveis
+        // (Xiaomi/Redmi, Samsung, Huawei) perdem ou atrasam: lê as JANELAS que estão mesmo no ecrã.
         escopo.launch {
+            val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
             while (isActive) {
-                delay(1_500)
+                delay(if (try { pm.isInteractive } catch (_: Exception) { true }) 500L else 3_000L)
                 val ativa = try { rootInActiveWindow?.packageName?.toString() } catch (e: Exception) { null }
-                if (ativa != null && ativa != packageName && ativa !in PACOTES_IGNORADOS &&
-                    !ativa.contains("inputmethod") && !ativa.contains("keyboard")
-                ) pacoteAtual = ativa
-                val p = pacoteAtual ?: continue
-                principal.post { reavaliar(p) }
+                if (ativa != null && ehPacoteDeApp(ativa)) pacoteAtual = ativa
+                principal.post { recomputar() }
             }
         }
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         if (event == null) return
+        if (event.eventType == AccessibilityEvent.TYPE_WINDOWS_CHANGED) {
+            principal.post { recomputar() }
+            return
+        }
         val pacote = event.packageName?.toString() ?: return
         if (pacote == packageName) return
 
@@ -136,7 +143,7 @@ class ServicoAcessibilidade : AccessibilityService() {
             AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED -> {
                 if (pacote !in PACOTES_IGNORADOS && !pacote.contains("inputmethod") && !pacote.contains("keyboard")) {
                     pacoteAtual = pacote
-                    avaliarApp(pacote)
+                    principal.post { recomputar() }
                 }
                 verificarProtecao(pacote, forcar = true)
             }
@@ -147,16 +154,76 @@ class ServicoAcessibilidade : AccessibilityService() {
 
     // ---------- Bloqueio de apps ----------
 
-    private fun avaliarApp(pacote: String) {
-        principal.post { reavaliar(pacote) }
+    private fun ehPacoteDeApp(p: String): Boolean =
+        p != packageName && p !in PACOTES_IGNORADOS && !p.contains("inputmethod") && !p.contains("keyboard")
+
+    /**
+     * Pacotes das janelas de aplicações que estão no ecrã (inclui ecrã dividido e janela flutuante).
+     * É a fonte mais fiável: ignora teclado, barra de estado, pop-ups do sistema e o nosso próprio ecrã de
+     * bloqueio, que antes faziam o bloqueio "desaparecer" por instantes. Vazio = o Android não disse.
+     */
+    private fun pacotesDasJanelas(): Set<String> {
+        val r = LinkedHashSet<String>()
+        try {
+            for (w in windows) {
+                if (w.type != AccessibilityWindowInfo.TYPE_APPLICATION) continue
+                val raiz = try { w.root } catch (_: Exception) { null } ?: continue
+                val p = raiz.packageName?.toString()
+                @Suppress("DEPRECATION")
+                if (android.os.Build.VERSION.SDK_INT < 33) try { raiz.recycle() } catch (_: Exception) {}
+                if (p != null) r.add(p)
+            }
+        } catch (_: Exception) {
+        }
+        return r
     }
 
-    /** Corre na thread principal. Mostra o bloqueio se a app deve estar bloqueada, senão esconde-o. */
-    private fun reavaliar(pacote: String) {
-        val decisao = if (janelaAdmin || !bloqueioAtivo) null else MotorRegras.decidirApp(pacote, apps, regrasUrl, perfis, liberacoes)
+    /** Segunda opinião independente: o histórico de uso do Android (ACTIVITY_RESUMED/PAUSED). */
+    private var usoAtual: String? = null
+    private var usoDesde = 0L
+    private fun consultarUso(): String? {
+        try {
+            val usm = getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
+            val agora = System.currentTimeMillis()
+            val inicio = maxOf(usoDesde - 1_500L, agora - 60_000L)
+            val eventos = usm.queryEvents(inicio, agora)
+            val e = UsageEvents.Event()
+            while (eventos.hasNextEvent()) {
+                eventos.getNextEvent(e)
+                @Suppress("DEPRECATION")
+                when (e.eventType) {
+                    UsageEvents.Event.MOVE_TO_FOREGROUND -> usoAtual = e.packageName
+                    UsageEvents.Event.MOVE_TO_BACKGROUND -> if (usoAtual == e.packageName) usoAtual = null
+                }
+            }
+            usoDesde = agora
+        } catch (_: Exception) {
+        }
+        return usoAtual?.takeIf { ehPacoteDeApp(it) }
+    }
+
+    /** Corre na thread principal. Decide se há uma app bloqueada à vista e mostra ou esconde o bloqueio. */
+    private fun recomputar() {
+        if (janelaAdmin || !bloqueioAtivo) {
+            if (ecraBloqueio?.visivel == true) ecraBloqueio?.ocultar()
+            return
+        }
+        val janelas = pacotesDasJanelas()
+        val candidatos: Set<String> = if (janelas.isNotEmpty()) {
+            janelas.filter { ehPacoteDeApp(it) }.toSet()
+        } else {
+            // O Android não listou janelas: usa os eventos e o histórico de uso.
+            setOfNotNull(pacoteAtual, consultarUso())
+        }
+        var decisao: MotorRegras.Decisao? = null
+        for (p in candidatos) {
+            decisao = MotorRegras.decidirApp(p, apps, regrasUrl, perfis, liberacoes)
+            if (decisao != null) break
+        }
         if (decisao != null) {
             mostrarBloqueio(decisao)
-        } else if (ecraBloqueio?.visivel == true) {
+        } else if (ecraBloqueio?.visivel == true && (janelas.isNotEmpty() || pacoteAtual != null)) {
+            // Só esconde quando se sabe que a app bloqueada saiu do ecrã (nunca "às cegas").
             ecraBloqueio?.ocultar()
         }
     }
